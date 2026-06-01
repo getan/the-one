@@ -62,7 +62,7 @@ content/docs
 
 ## Drafts and Assets
 
-- `docs_md`: source drafts for new documentation.
+- `docs_md`: local source drafts for new documentation. This directory is ignored by Git.
 - `resources`: video assets referenced by the documentation.
 - `public/docs-assets/images`: screenshots used by documentation pages.
 - `public/docs-assets/videos`: demo videos used by documentation pages.
@@ -80,7 +80,7 @@ The script removes the old `content/docs` placeholder content, regenerates the `
 ## Maintenance Rules
 
 - English and Chinese documents must keep matching slugs so language switching stays stable.
-- User-facing content belongs in `content/docs`; raw drafts belong in `docs_md`.
+- User-facing content belongs in `content/docs`; raw drafts belong in local `docs_md`.
 - Screenshots and videos must be served from `public/docs-assets`; pages should not reference local draft paths.
 - Do not commit product source code, secrets, internal architecture details, or deployment-only configuration to this repository.
 

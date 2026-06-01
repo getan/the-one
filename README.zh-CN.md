@@ -62,7 +62,7 @@ content/docs
 
 ## 草稿与资源
 
-- `docs_md`：新文档草稿来源。
+- `docs_md`：本地新文档草稿来源。该目录已被 Git 忽略。
 - `resources`：文档中引用的视频资源。
 - `public/docs-assets/images`：文档页面使用的截图资源。
 - `public/docs-assets/videos`：文档页面使用的演示视频资源。
@@ -80,7 +80,7 @@ python scripts\migrate_docs_md.py
 ## 维护原则
 
 - 中英文文档必须保持相同 slug，避免语言切换时路由漂移。
-- 面向用户的表达放进 `content/docs`，原始草稿放进 `docs_md`。
+- 面向用户的表达放进 `content/docs`，原始草稿放进本地 `docs_md`。
 - 截图和视频必须走 `public/docs-assets`，不要在页面里引用本地草稿路径。
 - 不要在这个仓库提交产品源码、密钥、内部架构细节或部署专用配置。
 
