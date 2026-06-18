@@ -5,6 +5,6 @@ description: 导入和管理常用 MCP 工具。
 
 导入和管理你常用的 MCP 工具，操作方式和其他前沿的 AI Agent 应用一样
 
-![界面截图](/docs-assets/images/image-20260531112816-ehzidx6.png)
+![MCP Servers 页面](/docs-assets/images/mcp-servers.png)
 
 每个 MCP server 都以一条持久会话运行，所以有状态的 server——浏览器自动化、桌面控制——能在多次工具调用之间保持状态，而不是每次冷启动。保存一个 server 时会自动发现它的工具；Agent 也可以在运行时给自己挂上一个 server：以 `mcp:*` 通配绑定的 server 会在 Agent 的下一个 cycle 被拾取，不需要重开对话。为了让 prompt 保持精简，数量庞大的工具会先用名字和描述来展示，每个工具的完整 schema 只在真正用到时才加载。

@@ -5,6 +5,6 @@ description: Import and manage common MCP tools.
 
 Import and manage the MCP tools you use often. The workflow is similar to other modern AI Agent applications.
 
-![Interface screenshot](/docs-assets/images/image-20260531112816-ehzidx6.png)
+![The MCP Servers page](/docs-assets/images/mcp-servers.png)
 
 Each MCP server runs as a persistent session, so stateful servers — browser automation, desktop control — keep their state across tool calls instead of cold-starting every time. Tools are discovered automatically when you save a server, and an Agent can also attach a server to itself at runtime: a server bound with the `mcp:*` wildcard is picked up on the Agent's next cycle, with no need to restart the conversation. To keep the prompt lean, a large tool roster is advertised by name and description, with each tool's full schema loaded only when it is used.
