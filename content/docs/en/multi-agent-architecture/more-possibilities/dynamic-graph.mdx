@@ -4,3 +4,5 @@ description: Agents can dynamically create, clone, activate, or suspend other Ag
 ---
 
 Inside a Graph, if an Agent is given the right tool permissions, it can create, clone, activate, or suspend other Agents. This allows the Graph to expand dynamically during execution.
+
+Concretely, an Agent can instantiate a peer Agent from an existing preset, clone a running Agent — its config, context, and tools — into a fresh identity, or run an entire blueprint as a sub-Graph and act as its own human, answering the sub-Graph's questions itself. The built-in chat Assistant uses this to act as a router that stands up and drives specialist sub-Graph teams rather than doing everything alone.

@@ -5,6 +5,8 @@
     "profile",
     "mcp",
     "agent",
-    "graph"
+    "graph",
+    "memory",
+    "atlas"
   ]
 }

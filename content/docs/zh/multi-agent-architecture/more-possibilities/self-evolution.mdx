@@ -1,0 +1,10 @@
+---
+title: Self-Evolution
+description: 一个纯 Agent 的工坊，诊断自己的失败并在正确的层级上修复。
+---
+
+The One 内置了一个自进化实验室：一个 Multi-Agent Graph，它会观察反复出现的失败、做出诊断，并施加“最小且持久”的修复——一条 memory、一个 Skill、一段 prompt、一个 workflow，或工具代码——然后评审、测试，并决定晋升还是回滚。
+
+在这个循环内部，人类被刻意排除在审批位之外。由内部的 reviewer、tester、archivist 角色，加上测试和回滚，来承担这个角色。唯一的硬边界：这个循环绝不自行执行高风险的外部副作用——发消息、删你的数据、改动生产。遇到这种情况，它会停在一个安全的提案上。
+
+它建立在可审计、可回退的原语之上——按 Space 的 [memory](../../the-one-app/definition-space/memory)，以及带回滚的版本历史——让自我改进保持安全、可检查，而不是靠魔法。

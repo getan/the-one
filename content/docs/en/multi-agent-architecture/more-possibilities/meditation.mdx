@@ -1,0 +1,10 @@
+---
+title: Meditation
+description: Agents manage their own context window by compressing their own history.
+---
+
+An Agent's context window is the hard limit on how long it can keep working. With the right tool, an Agent can "meditate": compress its own conversation history in place through an inline summarizer that inherits its model and settings, then resume with a smaller, cleaner context.
+
+Meditation can be called explicitly by the Agent, or triggered automatically when real context usage crosses a threshold — so a long-running Agent shrinks its own prompt before it overflows instead of wedging at the limit.
+
+Before compressing, the Agent can keep a durable lesson in the Space's [memory](../../the-one-app/definition-space/memory), so long work leaves knowledge behind instead of losing it to compaction. Each meditation is recorded in the message timeline, so you can see exactly where an Agent compacted itself.

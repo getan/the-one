@@ -1,0 +1,10 @@
+---
+title: Self-Evolution
+description: An agent-only workshop that diagnoses its own failures and fixes the right layer.
+---
+
+The One ships a self-evolution lab: a Multi-Agent Graph that observes recurring failures, diagnoses them, and applies the smallest durable fix — a memory, a Skill, a prompt, a workflow, or tool code — then reviews, tests, and either promotes or rolls it back.
+
+The human is deliberately not the approval gate inside the loop. Internal reviewer, tester, and archivist roles, together with tests and rollback, take that role. The one hard boundary: the loop never performs high-risk external side effects — sending messages, deleting your data, mutating production — on its own. In those cases it stops at a safe proposal.
+
+It builds on auditable, reversible primitives — per-Space [memory](../../the-one-app/definition-space/memory) and version history with rollback — so self-improvement stays safe and inspectable rather than magical.

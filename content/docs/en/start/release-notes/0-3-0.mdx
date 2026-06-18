@@ -1,0 +1,129 @@
+---
+title: The One 0.3.0 Release Notes
+description: 0.3.0 makes agents self-sustaining — they manage their own context, grow their own capabilities, build their own Graphs, remember, and improve themselves.
+---
+
+The One 0.3.0 is about endurance and autonomy.
+
+0.1.0 proved you can build, run, and observe a Multi-Agent Graph. 0.2.0 opened the system up: more model Providers, multiple independent Definition Spaces, and a sharing platform. 0.3.0 is the release where The One stops being something you have to operate step by step and becomes something Agents can sustain, grow, and improve on their own.
+
+An autonomous Multi-Agent system usually fails for boring reasons. It runs out of context and wedges. It needs a capability nobody wired in up front. It forgets why it did something three conversations ago. It pauses to ask a human who has already walked away. 0.3.0 attacks each of these directly.
+
+## Core Changes
+
+### Meditation: Agents that manage their own context
+
+The hard ceiling on how long an Agent can keep working is its context window. In 0.3.0, Agents stop hitting that ceiling and start managing it.
+
+- An Agent can call the new `meditate` tool to compress its own conversation history in place. The compression runs through an inline summarizer that inherits the Agent's model, connection, and reasoning settings, so the Agent resumes uninterrupted with a smaller, cleaner context.
+- Meditation can also trigger **automatically**. A runtime monitor measures real context usage — the provider-reported prompt tokens against the correct context window for that exact model and connection — and meditates when usage crosses 85%, shrinking the same cycle's prompt before it overflows.
+- Before compressing, the summarizer can distil one durable, reusable lesson into the Space's memory. Long-running work leaves behind knowledge instead of losing it to compaction.
+- Each meditation is housed in a dedicated, persisted "Meditation" sub-Graph and recorded as a **Meditated** marker in the message timeline, so you can see exactly where an Agent compacted itself and inspect how it did so.
+
+This is the difference between an Agent that stalls at the context wall and one that can run for hours. We treat context as a resource the Agent is responsible for, not a limit it crashes into.
+
+### Memory that belongs to the Space
+
+0.3.0 gives every Definition Space a memory.
+
+- Memory is a file-based, per-Space journal the Agent curates: the rationale behind a definition it builds, and the lessons it learns along the way. Each entry is a plain-text Markdown file you can read and edit.
+- Memory is **ambient**. Every entry is projected into the Agent's context each cycle as an always-on collapsed card, so the Agent acts on what it knows without a lookup step. `recall` simply expands a card.
+- Memory travels with the Space. Duplicate, import, or export a Space and its accumulated knowledge comes with it.
+- The `remember` / `recall` / `update_memory` / `forget` tools are bindable to any Agent, and Meditation feeds memory automatically.
+
+A Space is no longer just a static bundle of definitions. It accumulates institutional knowledge that survives across conversations and machines.
+
+### Capabilities Agents can grow at runtime
+
+In 0.3.0 an Agent's tool surface is no longer fixed at build time. Through the new **Capability Manager**, an Agent can extend itself mid-conversation.
+
+- `discover_skills` scans for Skills and attaches them; `attach_mcp` binds a configured MCP server whose tools become available on the next turn; `search_tools` / `load_tool` pull in the full schema for a tool on demand.
+- Wildcard bindings — tools `*`, `mcp:*`, and Skills `*` — are re-expanded every cycle, so a running Agent picks up a newly added MCP server or Skill without restarting the conversation.
+
+The MCP layer underneath was rebuilt to make this real:
+
+- **Persistent per-server sessions.** A server is initialized once and reused across calls, so stateful servers (browser automation, desktop control) keep their state between tool calls instead of cold-starting every time.
+- **Resources and Prompts**, not just Tools — Agents can list and read MCP resources and fetch MCP prompts.
+- **Auto-discovery on save**, expandable per-server tool lists in the MCP page, clean readable errors when a server can't start, correct `npx` resolution on Windows, and per-server working-directory isolation so servers stop littering your project tree.
+- **Lazy tool schemas.** A large MCP roster used to flood the prompt with parameter schemas. Tools are now advertised by name and one-line description, with the full schema loaded only when used — recovering a large slice of the token budget for actual work.
+- A bundled **Desktop Control** MCP server (screen, mouse, keyboard) ships in the default Space.
+
+### Live sub-Graphs: Agents that build and run their own teams
+
+The Graph is no longer only an artifact you author ahead of time. In 0.3.0 an Agent can stand up and operate a Multi-Agent team at runtime.
+
+- `create_subgraph` lets an Agent spawn any blueprint as a child sub-Graph **and act as its human** — the sub-Graph's questions are routed back to the parent, which answers with `reply_to_subgraph`. An optional `project_path` lets that team work in a real directory.
+- `create_agent_node` instantiates a peer Agent from a preset directly into the live Graph; `clone_agent_node` duplicates a running Agent — config, context, and tools — into a fresh identity.
+- The built-in chat Assistant is repositioned as a **router**: it discovers, spawns, drives, and reports on specialist sub-Graph teams rather than doing everything itself, with `record_agent_knowledge` to declare what it knows at handoff points without copying whole contexts around.
+
+For clarity, the graph toolset vocabulary now matches the product: `workflow_tools` is `graph_tools`, `add_workflow_edge` is `add_edge`, `list_workflow_nodes` is `list_nodes` (the old names still resolve as aliases).
+
+### The Atlas: a visual canvas for your Definition Space
+
+Authoring a Multi-Agent system used to mean hand-editing YAML. The **Atlas** turns the whole Definition Space into one navigable canvas.
+
+- Prompts, Skills, MCP servers, Agents, and Graphs are laid out in a single space with level-of-detail zoom and lineage highlighting, so you can see how everything references everything else.
+- A floating **director** command bar lets you drive a builder Agent in natural language — "add a reviewer", "split this prompt" — and watch a live plan-and-action checklist as it works.
+- Definitions can live in **folders**, reflected both in the editor rails and as grouped zones on the canvas.
+- The underlying `definition_editor` ships with dry-run previews, non-blocking semantic warnings (unknown tools, missing Skills, name/file mismatches), and **git-independent versioning, audit, and rollback** — so agent-driven edits to a production Space are safe and reversible even where git is absent.
+
+### The Self-Evolution Lab
+
+0.3.0 includes the platform's first concrete take on self-improving Agents: a bundled, agent-only workshop that can diagnose its own recurring failures and durably fix the right layer.
+
+- A `self_evolution_lab` Graph wires seven roles into an Observe → Diagnose → Plan → Patch → Review → Test → Archive → Promote/Roll-back chain, paired with a `self-improvement-protocol` Skill that defines when to trigger and how to choose the smallest durable fix (a memory, a Skill, a prompt, a workflow, or tool code).
+- The human is deliberately **not** the approval gate inside the loop — internal reviewer, tester, and archivist roles, plus tests and rollback, take that role. The one hard boundary: the loop never performs high-risk external side effects (sending messages, deleting your data, mutating production) on its own; it stops at a safe proposal instead.
+
+It reuses the rest of 0.3.0 as its substrate — per-Space memory, definition versioning and rollback, the knowledge ledger — which is the point. Self-improvement is built on auditable, reversible primitives, not magic.
+
+### A managed Default space
+
+The Default Space is now installer-managed and **read-only**, mirroring the bundled definitions on every launch so an upgrade always carries the latest built-ins.
+
+- You work in a copy, not in the Default itself. One click duplicates it into your own editable Space.
+- New, imported, and duplicated Spaces are automatically **seeded** with the built-in chat and Atlas definitions, so a fresh Space is immediately usable instead of failing to resolve its entry Graph.
+- Onboarding gains a "set up your own space" step that nudges you off the factory baseline and into your own copy.
+
+### Reasoning, made visible across every Provider
+
+- A single **Reasoning** control (effort plus thinking-summary detail) is available per Agent and on the global Main Model, and it inherits like temperature.
+- Thinking now streams into the UI for **every** Provider — Anthropic, OpenAI Responses and chat, Gemini, and Codex — instead of Anthropic only.
+- Per-Provider model pickers were filled in for Codex and Anthropic / Claude Code, the context window is now resolved by model **and** connection so the displayed limit matches reality, and a global **Main Model** (set from the top bar, hot-reloaded with no restart) backs any Agent that doesn't pin its own model.
+
+## Experience Improvements
+
+### One design system
+
+The entire desktop UI was unified under a single dark editorial design language — consistent type scale, inputs, buttons, and rebuilt Card / Dialog / Select / Dropdown primitives. Every editor, list, dialog, and inspector now feels like one tool.
+
+### A rebuilt Agent editor
+
+The Agent editor is reorganized around what matters: essential fields stay visible, secondary ones collapse, a "use default model" toggle hides model config for Agents that follow the Main Model, and new Agents get sensible defaults (core tools pre-checked, Skills and MCP set to wildcard). Skills and MCP each get an **All / Custom** control instead of a wall of checkboxes.
+
+### Sessions, rebuilt
+
+The library is now **Sessions**: conversations are auto-titled from your first message (instead of a blueprint id), sorted by recent activity, and nested under their parent so sub-Graphs sit beneath the conversation that spawned them. The conversation view was stripped to a clean, Claude-Code-style flow — plain assistant text, quiet single-line tool rows, work chains collapsed by default — and the message column widened to use large windows.
+
+### A transparent inspector
+
+The context inspector now shows what was previously invisible: plaintext **reasoning**, tool-call turns with their arguments rendered as a JSON tree, context collapsed and grouped by slot, and tools grouped by their source toolset or MCP server.
+
+### Native desktop notifications and self-service updates
+
+When an Agent calls a human-interaction tool, the desktop app pops a native OS notification so you notice even when the window is in the background — clicking it brings you straight to the conversation. A new About menu surfaces the app version and release date, and a one-click **Install update** pill appears the moment an update finishes downloading.
+
+## Under the Hood
+
+0.3.0 also reworks the framework's storage and lifecycle so Agents can run continuously instead of in tightly controlled bursts.
+
+- **Live config reapply is now a guarantee.** Editing an Agent preset or the Main Model reliably takes effect in already-running conversations on the next cycle, via optimistic locking that no longer lets a long LLM cycle silently clobber an external change.
+- **Append-only history** removes a class of lost-update and phantom-component bugs, **transactional event publishing** with dead-letter recovery keeps the durable log honest across crashes, and tools now run in parallel only when explicitly declared safe — reads concurrently, writes and remote mutations always ordered.
+- A new **one-command Windows signed-release pipeline** turns a fragile manual ritual into a repeatable, resumable build — which is what makes the in-app auto-update flow trustworthy.
+
+## Summary
+
+0.1.0 proved The One can build, run, and observe a Multi-Agent Graph.
+0.2.0 proved those Graphs can be switched, reused, and shared.
+0.3.0 proves they can endure: Agents that manage their own context, grow their own capabilities, build and operate their own sub-Graphs, remember across conversations, and improve themselves — all visible and reversible.
+
+The One is moving from a Multi-Agent platform toward an environment where Multi-Agent systems run long, grow their own capabilities, and get better over time.

@@ -1,0 +1,129 @@
+---
+title: The One 0.3.0 Release Notes
+description: 0.3.0 让 Agent 开始自我维持——自己管理上下文、自己扩展能力、自己搭建 Graph、自己记忆、自己改进。
+---
+
+The One 0.3.0 的关键词是续航与自治。
+
+0.1.0 证明了你可以搭建、运行和观察一个 Multi-Agent Graph。0.2.0 把系统打开：接入更多模型 Provider、管理多套独立的 Definition Space、通过分享平台交换架构。0.3.0 则是这样一个版本——The One 不再是一个需要你一步步操作的工具，而是一个 Agent 可以自己维持、自己生长、自己改进的系统。
+
+一个自治的 Multi-Agent 系统，往往是因为很无聊的原因失败的：上下文用完后卡死；需要一个事先没人接好的能力；忘了三段对话之前自己为什么那样做；停下来等一个早就离开的人。0.3.0 正面解决这几件事。
+
+## 核心变化
+
+### Meditation：让 Agent 自己管理上下文
+
+决定一个 Agent 能连续工作多久的硬上限，是它的上下文窗口。在 0.3.0 中，Agent 不再撞上这个上限，而是开始管理它。
+
+- Agent 可以调用新的 `meditate` 工具，原地压缩自己的对话历史。压缩由一个内联的 summarizer 完成，它继承当前 Agent 的模型、连接和推理配置，所以 Agent 会带着一份更小、更干净的上下文无缝继续。
+- Meditation 也可以**自动触发**。运行时会测量真实的上下文占用——用 Provider 返回的 prompt token 数，除以该模型与连接对应的真实上下文窗口——在占用越过 85% 时自动 meditate，在同一个 cycle 里就把 prompt 缩下来，不等它溢出。
+- 在压缩之前，summarizer 可以把一条可复用的经验沉淀进这个 Space 的 memory。长任务会留下知识，而不是被压缩一笔勾销。
+- 每一次 meditation 都被放进一个专门的、持久化的 “Meditation” 子 Graph，并在消息时间线里标记为 **Meditated**，所以你能清楚看到 Agent 在哪里压缩了自己，以及它是怎么压缩的。
+
+这就是一个会在上下文墙前卡死的 Agent，和一个能连续跑几个小时的 Agent 之间的区别。我们把上下文当作 Agent 需要自己负责的资源，而不是一道它会一头撞上去的限制。
+
+### 属于 Space 的 Memory
+
+0.3.0 给每个 Definition Space 都配上了记忆。
+
+- Memory 是一份基于文件、随 Space 走的日志，由 Agent 自己维护：它会记录自己搭建某个 definition 的理由，以及一路上学到的经验。每条记忆都是一个你可以读、可以改的纯文本 Markdown 文件。
+- Memory 是**常驻**的。每条记忆每个 cycle 都会以一张折叠卡片的形式投影进 Agent 的上下文，所以 Agent 不用先“查一下”就知道自己记得什么；`recall` 只是把卡片展开。
+- Memory 随 Space 迁移。复制、导入、导出一个 Space，它积累的知识也一起走。
+- `remember` / `recall` / `update_memory` / `forget` 这组工具可以挂到任意 Agent 上，Meditation 也会自动往 memory 里写。
+
+一个 Space 不再只是一堆静态的 definition，它会沉淀出跨越对话、跨越机器的“组织知识”。
+
+### Agent 可以在运行时自己长能力
+
+在 0.3.0 中，Agent 的工具面不再是构建时就固定死的。通过新的 **Capability Manager**，Agent 可以在对话过程中给自己扩展能力。
+
+- `discover_skills` 扫描并挂载 Skill；`attach_mcp` 绑定一个已配置的 MCP server，它的工具会在下一轮可用；`search_tools` / `load_tool` 按需把某个工具的完整 schema 拉进来。
+- 通配绑定——工具 `*`、`mcp:*`、Skill `*`——每个 cycle 都会重新展开，所以一个正在运行的 Agent 会在下一轮自动拾取到新加的 MCP server 或 Skill，不需要重开对话。
+
+底层的 MCP 层为此被重写：
+
+- **每个 server 一条持久会话。** server 只初始化一次、跨调用复用，所以有状态的 server（浏览器自动化、桌面控制）能在多次工具调用之间保持状态，而不是每次冷启动。
+- 不只是 Tools，还支持 **Resources 和 Prompts**——Agent 可以列举、读取 MCP resource，并取用 MCP prompt。
+- **保存即自动发现工具**、MCP 页面里可展开查看每个 server 的工具列表、server 起不来时给出干净可读的错误、在 Windows 上正确解析 `npx`，以及每个 server 独立的工作目录（不再把文件乱写进你的项目树）。
+- **工具 schema 惰性加载。** 以前一堆 MCP 工具的参数 schema 会把 prompt 撑爆。现在工具只用名字加一行描述来展示，完整 schema 在真正用到时才加载——把很大一块 token 预算还给真正的工作。
+- 默认 Space 里内置了一个 **Desktop Control**（屏幕 / 鼠标 / 键盘）MCP server。
+
+### 活的子 Graph：Agent 自己搭建并运行团队
+
+Graph 不再只是你事先画好的东西。在 0.3.0 中，Agent 可以在运行时拉起并指挥一个 Multi-Agent 团队。
+
+- `create_subgraph` 让一个 Agent 把任意 blueprint 拉起为一个子 Graph，并**充当它的人类**——子 Graph 的提问会被路由回父节点，父节点用 `reply_to_subgraph` 回答。可选的 `project_path` 让这个团队在一个真实目录里干活。
+- `create_agent_node` 直接把一个 preset 实例化成 Graph 里的对等 Agent 节点；`clone_agent_node` 把一个正在运行的 Agent——连同配置、上下文和工具——克隆成一个全新身份。
+- 内置的聊天助手被重新定位为**路由器**：它发现、拉起、指挥并汇报各个专精子 Graph 团队，而不是自己一个人全干；配合 `record_agent_knowledge`，可以在交接点声明自己掌握的信息，而不必把整个上下文搬来搬去。
+
+为了让概念对齐，graph 工具集的命名也跟着改了：`workflow_tools` 现在叫 `graph_tools`，`add_workflow_edge` 改为 `add_edge`，`list_workflow_nodes` 改为 `list_nodes`（旧名字仍作为别名继续可用）。
+
+### Atlas：Definition Space 的可视化画布
+
+以前搭一套 Multi-Agent 系统，意味着手改 YAML。**Atlas** 把整个 Definition Space 变成一张可漫游的画布。
+
+- Prompt、Skill、MCP server、Agent、Graph 被铺在同一个空间里，带分层级缩放和血缘高亮，让你能看清谁引用了谁。
+- 一个浮动的**导演（director）**指令栏，让你用自然语言驱动一个 builder Agent——“加一个 reviewer”“把这段 prompt 拆开”——并实时看到它的计划与动作清单。
+- Definition 可以放进**文件夹**，这一组织既体现在编辑器侧栏里，也体现为画布上的分组区域。
+- 底层的 `definition_editor` 带有 dry-run 预览、非阻塞的语义警告（未知工具、缺失的 Skill、名字与文件名不一致），以及**不依赖 git 的版本、审计与回滚**——所以即使在没有 git 的环境里，Agent 对一个生产 Space 的改动也是安全、可回退的。
+
+### Self-Evolution Lab（自进化实验室）
+
+0.3.0 带来了平台对“自我改进的 Agent”的第一次具体实现：一个内置的、纯 Agent 的工坊，能诊断自己反复出现的失败，并在正确的层级上做出持久修复。
+
+- 一个 `self_evolution_lab` Graph 把七个角色串成 观察 → 诊断 → 计划 → 修补 → 评审 → 测试 → 归档 → 晋升/回滚 的链路，配合一个 `self-improvement-protocol` Skill，定义了何时触发、以及如何选择“最小且持久”的修复层（一条 memory、一个 Skill、一段 prompt、一个 workflow，或工具代码）。
+- 在这个循环内部，人类被刻意排除在审批位之外——由内部的 reviewer、tester、archivist 角色，加上测试和回滚来承担这个角色。唯一的硬边界：这个循环绝不自行执行高风险的外部副作用（发消息、删你的数据、改动生产），遇到这种情况它会停在一个安全的提案上。
+
+它把 0.3.0 的其余部分当作底座来复用——按 Space 的 memory、definition 的版本与回滚、知识账本——这正是重点。自我改进建立在可审计、可回退的原语之上，而不是靠魔法。
+
+### 受管的 Default space
+
+Default Space 现在由安装器托管，并且是**只读**的，每次启动都会镜像一份内置 definition，所以升级总能带上最新的内置内容。
+
+- 你在副本里工作，而不是直接改 Default。一键就能把它复制成你自己的可编辑 Space。
+- 新建、导入、复制出来的 Space 都会被自动**注入种子**——内置的 chat 与 Atlas definition，所以一个全新的 Space 立刻可用，而不会因为解析不到入口 Graph 而打不开。
+- 引导流程新增了“设置你自己的 space”这一步，把你从出厂基线推向你自己的副本。
+
+### 推理过程，在每个 Provider 上都可见
+
+- 一个统一的**推理（Reasoning）**控制项（推理强度 + thinking 摘要详细度）出现在每个 Agent 和全局 Main Model 上，并且像 temperature 一样可继承。
+- thinking 现在会在**每一个** Provider 上流式呈现到 UI——Anthropic、OpenAI Responses 与 chat、Gemini、Codex——而不再只有 Anthropic。
+- Codex 与 Anthropic / Claude Code 的按 Provider 模型列表被补齐；上下文窗口现在按模型**和**连接共同解析，所以显示的上限和真实情况一致；新增的全局 **Main Model**（在顶栏设置、热更新、无需重启）会作为所有没有指定自己模型的 Agent 的兜底。
+
+## 体验改进
+
+### 统一的设计系统
+
+整个桌面端 UI 被统一到一套深色的“编辑手稿”设计语言下——一致的字阶、输入框、按钮，以及重写过的 Card / Dialog / Select / Dropdown 基础组件。每一个编辑器、列表、对话框和检查器现在都像同一个工具。
+
+### 重做的 Agent 编辑器
+
+Agent 编辑器围绕“真正重要的东西”重新组织：核心字段保持可见，次要字段折叠；一个“使用默认模型”的开关，会为跟随 Main Model 的 Agent 隐藏模型配置；新建 Agent 带有合理的默认值（核心工具预勾选，Skill 与 MCP 默认设为通配）。Skill 与 MCP 各有一个 **All / Custom** 控件，取代成片的勾选框。
+
+### 重做的 Sessions
+
+资料库现在叫 **Sessions（会话）**：对话标题会从你的第一句话自动生成（而不是显示 blueprint id），按最近活跃排序，并且嵌套在父对话之下，让子 Graph 落在拉起它的那次对话下面。对话视图被精简成干净的、Claude Code 风格的样式——助手纯文本、安静的单行工具行、工作链默认折叠——消息列也加宽以利用大窗口。
+
+### 透明的检查器
+
+上下文检查器现在会展示以前看不到的东西：纯文本**推理**、带参数（以 JSON 树渲染）的工具调用回合、按 slot 折叠并分组的上下文，以及按来源工具集或 MCP server 分组的工具。
+
+### 原生桌面通知与自助更新
+
+当 Agent 调用人机交互工具时，桌面端会弹出一个原生系统通知，所以哪怕窗口在后台你也能注意到——点一下就直接回到那段对话。新的 About 菜单会展示应用版本和发布日期，更新下载完成的那一刻，会出现一个一键 **Install update（安装更新）** 的按钮。
+
+## 底层
+
+0.3.0 也重做了框架的存储与生命周期，让 Agent 可以持续运行，而不是只能在严格受控的短脉冲里跑。
+
+- **配置热重应用现在是一项保证。** 改一个 Agent preset 或 Main Model，会可靠地在已经运行的对话的下一个 cycle 生效；乐观锁不再让一个漫长的 LLM cycle 悄悄覆盖掉一次外部改动。
+- **append-only 的历史**消除了一整类“更新丢失 / 组件复活”的 bug，**事务化的事件发布**配合死信恢复让持久日志在崩溃后依然可信；工具现在只有在显式声明安全时才并行——读并发执行，写和远程变更始终有序。
+- 新增的**一条命令的 Windows 签名发布流水线**，把原来脆弱的手工仪式变成一个可重复、可断点续传的构建——这正是让应用内自动更新流程值得信任的前提。
+
+## 总结
+
+0.1.0 证明了 The One 可以搭建、运行和观察一个 Multi-Agent Graph。
+0.2.0 证明了这些 Graph 可以被切换、复用和分享。
+0.3.0 证明了它们可以续航：Agent 自己管理上下文、自己扩展能力、自己搭建并运行子 Graph、跨对话记忆、并自我改进——而且这一切都可见、可回退。
+
+The One 正在从一个 Multi-Agent 平台，走向一个让 Multi-Agent 系统能长时间运行、自己生长能力、并随时间变得更好的环境。
