@@ -56,6 +56,8 @@ Graph 不再只是你事先画好的东西。在 0.3.0 中，Agent 可以在运�
 - `create_agent_node` 直接把一个 preset 实例化成 Graph 里的对等 Agent 节点；`clone_agent_node` 把一个正在运行的 Agent——连同配置、上下文和工具——克隆成一个全新身份。
 - 内置的聊天助手被重新定位为**路由器**：它发现、拉起、指挥并汇报各个专精子 Graph 团队，而不是自己一个人全干；配合 `record_agent_knowledge`，可以在交接点声明自己掌握的信息，而不必把整个上下文搬来搬去。
 
+把这些合起来——一个 Agent 在运行时构建、指挥并拆除自己的 Multi-Agent 团队——就是我们如今所称的 **Prolifera Engineering（增殖式工程）**。其概念与诚实的边界，见 [Prolifera Engineering](../../multi-agent-architecture/prolifera-engineering)。
+
 为了让概念对齐，graph 工具集的命名也跟着改了：`workflow_tools` 现在叫 `graph_tools`，`add_workflow_edge` 改为 `add_edge`，`list_workflow_nodes` 改为 `list_nodes`（旧名字仍作为别名继续可用）。
 
 ### Atlas：Definition Space 的可视化画布

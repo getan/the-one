@@ -1,0 +1,31 @@
+---
+title: Prolifera Engineering
+description: How The One grows a Multi-Agent system at runtime — one chat Agent that clones, creates, and tears down Agents, modeled on cell proliferation.
+---
+
+**Prolifera Engineering** is the name for how The One builds and runs Multi-Agent systems at runtime. The authority to create Agents and Graphs is held mainly by a single human-facing chat Agent. As it works, that Agent can clone itself, instantiate Agents from presets, stand up whole Graphs as sub-Graphs, and tear them down — growing the system it needs as it goes, instead of running a fixed one wired in advance.
+
+The name is borrowed from biology — *cell proliferation* — as plain vocabulary for what the mechanisms already do. It describes the shape of the work, not a claim that Agents behave like living cells.
+
+## The four-stage analogy
+
+Each term maps to a mechanism documented elsewhere in this section:
+
+- **Replication** — instantiating a Graph, or `clone_agent_node`, copies an Agent's config, context snapshot, and tools into a fresh identity. The copy is born disconnected and inactive. See [Dynamic Graph](../more-possibilities/dynamic-graph).
+- **Division** — one Agent becomes several to parallelize bounded work, via `clone_agent_node` or a TaskBoard. An Agent overloaded with context does *not* divide — it compresses its memory in place; that is [Meditation](../more-possibilities/meditation), a separate mechanism.
+- **Differentiation** — a created Agent is a specialist because its prompt, profiles, skills, and tools are set at creation from its preset. It can extend its own tools mid-run through the Capability Manager.
+- **Apoptosis** — on completion an Agent reports up to its parent and is put to sleep. It is not freed; its resources are reclaimed only when a parent explicitly tears it down with `delete_subgraph` or `delete_agent`.
+
+## Where the authority lives
+
+The founding tools — `create_subgraph`, `clone_agent_node`, `create_agent_node`, `create_task_board` — are concentrated by default in the human-facing chat Agent. The Agents and Graphs it creates usually are **not** granted those tools, so they typically do their work without proliferating further. This is a per-preset configuration choice, not a hard rule: a created Agent can be granted the tools and proliferate in turn.
+
+## What is automatic, and what is not
+
+The framework does two things on its own: it compresses an Agent's memory when context grows large ([Meditation](../more-possibilities/meditation)), and it sleeps an Agent when its work completes or it reaches its cycle budget. Everything else — cloning, creating, tearing down — happens because an Agent decides to call the tool.
+
+So proliferation is an Agent's own decision, and it is not globally capped: an Agent that holds the founding tools and keeps deciding to spawn can run away. The design concentrates that authority in one Agent by default, and the system is fully observable and tearable-down so you can step in — it does not prevent runaway, and does not claim to. Like the rest of 0.3.0, it is built to be auditable and reversible rather than guaranteed safe.
+
+## The name
+
+The company is The Zeroth; the product is The One. Informally, the chat Agent is the zeroth cell, and the Agents it creates are the ones. *Prolifera* is from Latin *proles* (offspring) + *ferre* (to bear).

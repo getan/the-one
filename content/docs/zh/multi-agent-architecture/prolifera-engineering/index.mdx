@@ -1,0 +1,31 @@
+---
+title: Prolifera Engineering（增殖式工程）
+description: The One 如何在运行时长出一个 Multi-Agent 系统——一个 chat Agent 克隆、创建、再拆除 Agent，以细胞增殖为模型。
+---
+
+**Prolifera Engineering（增殖式工程）** 是对 The One 在运行时构建并运行 Multi-Agent 系统这一方式的命名。创建 Agent 与 Graph 的权柄，主要握在一个面向人类的 chat Agent 手里。它在工作过程中可以克隆自己、从 preset 实例化 Agent、把整套 Graph 作为子 Graph 立起来、再拆除——按需在运行中“长出”所需的系统，而不是运行一个预先连好的固定系统。
+
+这个名字借自生物学的*细胞增殖*，作为描述这些机制的朴素词汇。它描述的是工作的形态，并非声称 Agent 像活细胞那样行事。
+
+## 四阶段类比
+
+每一项都对应本节其他页面里记录的机制：
+
+- **复制（Replication）**——实例化一份 Graph，或调用 `clone_agent_node`，把一个 Agent 的配置、上下文快照与工具复制成一个全新身份。副本生来即断连、未激活。见 [Dynamic Graph](../more-possibilities/dynamic-graph)。
+- **分裂（Division）**——一个 Agent 变成多个，以并行处理有界的工作，途径是 `clone_agent_node` 或 TaskBoard。上下文过载的 Agent **不会**分裂——它会就地压缩自己的记忆，那是另一套机制：[Meditation](../more-possibilities/meditation)。
+- **分化（Differentiation）**——被创建的 Agent 之所以是专才，是因为它的 prompt、profiles、skills 与 tools 在创建时由其 preset 设定。它可在运行中途经由 Capability Manager 扩展自己的工具。
+- **凋亡（Apoptosis）**——完工时，Agent 向上级汇报并被置入睡眠。它并未被释放；其资源只有当某个父级用 `delete_subgraph` 或 `delete_agent` 显式拆除它时才被回收。
+
+## 权柄在谁手里
+
+那几样开创工具——`create_subgraph`、`clone_agent_node`、`create_agent_node`、`create_task_board`——默认集中在那个面向人类的 chat Agent 身上。它创建出来的 Agent 与 Graph 通常**不**被授予这些工具，因此一般只把自己的活干完，不再继续增殖。这是 per-preset 的配置选择，并非绝对规则：某个被创建的 Agent 也可以被授予这些工具，从而轮到它去增殖。
+
+## 什么是自动的，什么不是
+
+框架自行只做两件事：在上下文变大时压缩 Agent 的记忆（[Meditation](../more-possibilities/meditation)），以及在 Agent 完工或达到周期预算时让它睡眠。其余的一切——克隆、创建、拆除——都是因为某个 Agent 决定去调用工具。
+
+所以增殖是 Agent 自己的决定，而且没有全局上限：一个持有开创工具、且不断决定去 spawn 的 Agent 是可能失控的。设计把这份权柄默认集中在一个 Agent 身上，并让整个系统可观察、可拆除，以便你介入——它不阻止失控，也不作此宣称。与 0.3.0 的其余部分一样，它的取向是可审计、可回退，而非“保证安全”。
+
+## 关于名字
+
+公司叫 The Zeroth，产品叫 The One。用一种不太正式的说法：chat Agent 是第零枚细胞，它创建出来的 Agent 就是诸一。*Prolifera* 源自拉丁语 *proles*（后代）+ *ferre*（孕育）。

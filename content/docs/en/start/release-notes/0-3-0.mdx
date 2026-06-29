@@ -56,6 +56,8 @@ The Graph is no longer only an artifact you author ahead of time. In 0.3.0 an Ag
 - `create_agent_node` instantiates a peer Agent from a preset directly into the live Graph; `clone_agent_node` duplicates a running Agent — config, context, and tools — into a fresh identity.
 - The built-in chat Assistant is repositioned as a **router**: it discovers, spawns, drives, and reports on specialist sub-Graph teams rather than doing everything itself, with `record_agent_knowledge` to declare what it knows at handoff points without copying whole contexts around.
 
+Taken together, this runtime growth — an Agent that builds, drives, and tears down its own Multi-Agent teams — is what we now call **Prolifera Engineering**. See [Prolifera Engineering](../../multi-agent-architecture/prolifera-engineering) for the concept and its honest limits.
+
 For clarity, the graph toolset vocabulary now matches the product: `workflow_tools` is `graph_tools`, `add_workflow_edge` is `add_edge`, `list_workflow_nodes` is `list_nodes` (the old names still resolve as aliases).
 
 ### The Atlas: a visual canvas for your Definition Space
