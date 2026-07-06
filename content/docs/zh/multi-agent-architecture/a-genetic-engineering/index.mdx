@@ -1,0 +1,63 @@
+---
+title: A-Genetic Engineering（Agent 基因工程）
+description: 把一支 Multi-Agent 工作小组完整写成可复用、可编辑、可传承的定义——经验与结构在这里融合成 Agent 的基因。
+---
+
+**A-Genetic Engineering（Agent 基因工程）** 是对 The One 中“一套 Multi-Agent 系统如何被写下来”这件事的命名。[Prolifera Engineering](../prolifera-engineering) 描述系统在运行时如何**长出来**；A-Genetic Engineering 描述它依照**什么**长——那份被完整写下、可复用、可编辑的定义。A 即 Agent：Agent-Genetic 的缩写。
+
+## 两个半成品
+
+上一代 Agent 产品，各自握着答案的一半：
+
+- Claude Code、Codex 这类单体 Agent 用 Skill 沉淀经过验证的经验与流程。这是**经验**，但没有结构承载它——一份 Skill 在新对话里落进怎样的上下文、被怎样的角色执行，每次都不一样，于是经验会漂移。
+- 它们的 Multi-Agent 则是临时生成的 sub-agent：干完杂活即被丢弃。这是**结构**，但没有遗传——再合理的分工，跑完一次就消散，下一次从零来过。
+
+经验没有结构，就会漂移；结构没有遗传，就会消散。
+
+## 基因：经验与结构的融合
+
+在 The One 中，一支工作小组被**完整地**写进 [仓储（Definition Space）](../../the-one-app/definition-space)：
+
+- **Graph 模版**（`workflows/*.yaml`）——节点与边。每个节点绑定一个 Agent 预设，并可叠加节点级的职责契约；每条边的描述文本就是移交指令本身：何时移交、交出什么、期待对方产出什么。这是小组的**身体蓝图**。
+- **Agent 预设**（`agents/*.yaml`）——每个成员的 system prompt、模型、temperature、工具面、Skill、Profile 与生命周期预算，彼此独立定义。这是每一种**细胞类型**。
+- **Skill 与 Profile**——沉淀下来的、可复用的“怎么做”与身份片段，按需挂载到任何成员身上。
+- **随 Space 迁移的 [memory](../../the-one-app/definition-space/memory)**——由 Agent 自己维护的日志，记录每一段基因为什么长成这样。
+
+单独看，这些上一代都有雏形。融合才是关键：当经验式的 Skill 落进一个角色明确、工具明确、上下级与通讯边都明确的**固定位置**，而不是随机的对话上下文，经验才第一次停止漂移；当结构连同每个成员的全部配置被写成文件，而不是散在一次运行的内存里，结构才第一次可以遗传。一支真正可复用的成熟工作小组，是这两者的融合体——这份完整的记录，就是它的**基因**。
+
+于是基因型与表现型分开了。Definition 是基因型；`create_subgraph` 把它表达成一个运行中的 Graph 实例——表现型。实例会睡眠、会被拆除；基因留下来，下一次表达时结构与配置逐字复现。（忠实指的是复现配置，不是复现行为——LLM 的输出仍是随机的，同一份基因不保证两次运行一字不差。）
+
+## 基因编辑
+
+编辑台是 `definition_editor`：dry-run 预览、非阻塞的语义警告（未知工具、缺失的 Skill、名字与文件名不一致），以及不依赖 git 的版本、审计与回滚。手改 YAML、在 Graph 编辑器里拖拽、或让 [Atlas](../../the-one-app/definition-space/atlas) 的 director 动手，走的都是同一条安全、可回退的路径。
+
+而这套系统的复杂性，不需要由你承担。内置的聊天助手就是你的基因工程师：
+
+- 你描述需求，它把活派给 atlas——专职创建与编辑定义的 Graph 编写团队——为你定义一整套新的 Graph 模版，并在交付前亲自评审。
+- 它随时可以用 `create_subgraph` 从模版实例化一个 Multi-Agent 小组，充当它的人类，自主向其指派工作、回答它的提问。
+- 它根据小组的实际表现，回头调整模版的结构、Skill 与 prompt——观察表现型，修改基因型。这正是基因编辑的完整回路。
+
+这条回路的最深处是 [Self-Evolution Lab](../more-possibilities/self-evolution)：一个纯 Agent 的工坊，观察反复出现的失败、诊断，并在正确的层级——一条 memory、一个 Skill、一段 prompt、一个 workflow——施加“最小且持久”的修复，评审、测试，再决定晋升还是回滚。用本页的词汇说，这是**定向进化**。
+
+<figure>
+  <video controls preload="metadata" aria-label="A-Genetic Engineering 演示" style={{ width: "100%", borderRadius: 12 }}>
+    <source src="/docs-assets/videos/a-genetic-engineering-demo.mp4" type="video/mp4" />
+  </video>
+  <figcaption>完整的基因编辑回路：向助手提出需求，atlas 编写出新的 Graph 模版，实例化运行，再依表现回头修改</figcaption>
+</figure>
+
+## 遗传
+
+基因的意义在于传承。一个 Space 可以被复制、导出、导入（`.zerospace`），它积累的定义和 memory 一起走——你培育出的工作小组，可以在另一台机器上原样表达。出厂的 Default Space 是只读的基因组基线；你在自己的副本上培育变体。
+
+## 边界
+
+这个类比和 Prolifera 一样，借自生物学，用作描述机制的朴素词汇，并非宣称 Agent 拥有生命。几条值得直说的边界：
+
+- **框架不会自己改基因。** 每一次定义编辑都是某个 Agent（或你）的决定，被审计、可回滚；不存在后台的自动“优化”。
+- **基因不保证表现。** 它固定的是结构、配置与经验落点，消除的是复现时的漂移；单次运行的质量仍取决于模型本身。
+- **编辑不等于验证。** 助手改完模版，改动是否真的更好，要靠再次运行观察，或交给 Self-Evolution Lab 的评审与测试环节——而不是默认相信。
+
+## 概念地图
+
+从 [单一 Agent](../single-agent) 出发：[演化](../evolution)解释为什么需要多个角色清晰的 Agent 协作；本页解释这份协作如何被写成可遗传的基因；[Prolifera Engineering](../prolifera-engineering) 解释基因如何在运行时被表达和增殖；[Self-Evolution](../more-possibilities/self-evolution) 解释基因如何在失败中被定向改良。

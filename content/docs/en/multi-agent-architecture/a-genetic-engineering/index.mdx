@@ -1,0 +1,63 @@
+---
+title: A-Genetic Engineering
+description: Writing a Multi-Agent crew down in full as a reusable, editable, heritable definition — where experience and structure fuse into an Agent's genes.
+---
+
+**A-Genetic Engineering** is the name for how a Multi-Agent system gets *written down* in The One. [Prolifera Engineering](../prolifera-engineering) describes how the system **grows** at runtime; A-Genetic Engineering describes what it grows **from** — the complete, reusable, editable definition. The A stands for Agent: Agent-Genetic, abbreviated.
+
+## Two half-answers
+
+The previous generation of Agent products each held half of the answer:
+
+- Single-body Agents like Claude Code and Codex use Skills to record verified experience and procedures. That is **experience** — but with no structure to carry it. In each new conversation a Skill lands in a different context, executed by a different implicit role, so the experience drifts.
+- Their multi-agent stories are ephemeral sub-agents: spawned for chores, discarded when done. That is **structure** — but with no heredity. However sound the division of labor, it dissolves when the run ends, and the next run starts from zero.
+
+Experience without structure drifts; structure without heredity dissolves.
+
+## The gene: experience fused with structure
+
+In The One, a working crew is written down **in full** inside the [Definition Space](../../the-one-app/definition-space):
+
+- **Graph templates** (`workflows/*.yaml`) — nodes and edges. Each node binds an Agent preset and can layer on a node-level contract of responsibilities; each edge's description *is* the handoff instruction: when to hand off, what to pass, what the other side should produce. This is the crew's **body plan**.
+- **Agent presets** (`agents/*.yaml`) — each member's system prompt, model, temperature, tool surface, Skills, Profiles, and lifecycle budget, defined independently of every other member. These are the **cell types**.
+- **Skills and Profiles** — distilled, reusable *how-to* and identity fragments, mounted onto any member as needed.
+- **A per-Space [memory](../../the-one-app/definition-space/memory)** — a journal the Agents maintain themselves, recording why each stretch of the genome is shaped the way it is.
+
+Taken separately, the previous generation had prototypes of all of these. The fusion is what matters: when an experiential Skill lands in a **fixed position** — a role with an explicit prompt, explicit tools, explicit superiors and communication edges — rather than in a random conversation context, experience stops drifting for the first time. When the structure, along with every member's full configuration, is written to files rather than scattered across one run's memory, structure becomes heritable for the first time. A genuinely reusable, mature working crew is the fusion of the two — and this complete record is its **gene**.
+
+Genotype and phenotype come apart. The definition is the genotype; `create_subgraph` expresses it as a running Graph instance — the phenotype. Instances sleep and get torn down; the gene remains, and the next expression reproduces the structure and configuration verbatim. (Faithful means the *configuration* is reproduced, not the behavior — LLM output is still stochastic, and one gene does not guarantee two identical runs.)
+
+## Gene editing
+
+The editing bench is the `definition_editor`: dry-run previews, non-blocking semantic warnings (unknown tools, missing Skills, names that don't match filenames), and versioning, audit, and rollback that do not depend on git. Editing YAML by hand, dragging in the Graph editor, or letting the [Atlas](../../the-one-app/definition-space/atlas) director do the work — all of it goes through the same safe, reversible path.
+
+And none of this complexity has to land on you. The built-in chat assistant is your genetic engineer:
+
+- You describe what you need; it hands the job to atlas — the graph-authoring crew that specializes in creating and editing definitions — to define a whole new Graph template, and reviews the result itself before putting it to use.
+- At any moment it can instantiate a Multi-Agent crew from a template with `create_subgraph`, act as that crew's human, assign it work, and answer its questions on its own judgment.
+- Watching how the crew actually performs, it goes back and adjusts the template's structure, Skills, and prompts — observing the phenotype, editing the genotype. That is the full gene-editing loop.
+
+At the deepest point of that loop sits the [Self-Evolution Lab](../more-possibilities/self-evolution): an Agent-only workshop that observes recurring failures, diagnoses them, and applies the *smallest durable* fix at the right layer — a memory, a Skill, a prompt, a workflow — then reviews, tests, and decides to promote or roll back. In this page's vocabulary: **directed evolution**.
+
+<figure>
+  <video controls preload="metadata" aria-label="A-Genetic Engineering demo" style={{ width: "100%", borderRadius: 12 }}>
+    <source src="/docs-assets/videos/a-genetic-engineering-demo.mp4" type="video/mp4" />
+  </video>
+  <figcaption>The full gene-editing loop: ask the assistant, atlas authors a new Graph template, it is instantiated and run, then edited based on how it performs</figcaption>
+</figure>
+
+## Heredity
+
+Genes matter because they are passed on. A Space can be copied, exported, and imported (`.zerospace`), and its accumulated definitions and memory travel with it — a crew you bred on one machine expresses identically on another. The factory Default Space is the read-only baseline genome; you breed variants in your own copy.
+
+## Boundaries
+
+Like Prolifera, the analogy is borrowed from biology as plain vocabulary for the mechanisms — not a claim that Agents are alive. Some boundaries worth stating directly:
+
+- **The framework never edits genes on its own.** Every definition edit is some Agent's (or your) decision, audited and reversible; there is no background "optimizer."
+- **Genes do not guarantee performance.** They fix structure, configuration, and where experience lands, eliminating drift across reproductions; the quality of any single run still depends on the model.
+- **An edit is not a validation.** After the assistant changes a template, whether the change is actually better is established by running it again and observing, or by the Self-Evolution Lab's review and test stages — not assumed.
+
+## The concept map
+
+Start from a [single Agent](../single-agent): [Evolution](../evolution) explains why complex work needs multiple Agents with clean roles; this page explains how that collaboration is written down as heritable genes; [Prolifera Engineering](../prolifera-engineering) explains how genes are expressed and proliferate at runtime; [Self-Evolution](../more-possibilities/self-evolution) explains how genes are improved, deliberately, out of failure.

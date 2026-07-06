@@ -10,7 +10,7 @@ The One 是 The Zeroth 的 AI Agent 桌面端应用。你可以直接使用 The 
 1. 使用 The Zeroth 官方模型服务
 2. 接入你自己的第三方模型渠道
 
-无论用哪种方式，每个 Agent 都可以使用自己的模型，或回退到一个你只需设置一次的全局**默认模型**——连同它的推理强度。
+无论用哪种方式，每个 Agent 都可以使用自己的模型，或回退到一个你只需设置一次的全局**默认模型（Default Model）**——连同它的推理强度。
 
 ![默认模型与推理设置](/docs-assets/images/default-model.png)
 
@@ -55,10 +55,11 @@ The Zeroth 通过官方账户统一接入模型服务，整体价格通常比个
 |渠道|支持方式|
 | ------------------| ------------------------------------|
 |OpenAI|API Key|
-|Anthropic Claude|API Key / Claude Code OAuth|
-|Google Gemini|API Key / Gemini Code Assist OAuth|
 |OpenAI Codex|OAuth|
-|自定义兼容服务|API Key|
+|Anthropic Claude|API Key / Claude Code OAuth|
+|Google Gemini|API Key / Gemini CLI / Antigravity Code Assist OAuth|
+|OpenRouter（自备 Key）|经“自定义兼容服务”接入（Base URL：`https://openrouter.ai/api/v1`）|
+|自定义兼容服务|API Key（OpenAI-compatible Base URL）|
 
 自定义兼容服务适合已经有企业模型网关、私有部署模型、或兼容 OpenAI 接口的第三方服务的团队。
 
@@ -87,7 +88,7 @@ The Zeroth 官方模型服务支持两种收费方式：
 
 - 桌面端应用
 - Agent 预设
-- Blueprint 工作流
+- Multi-Agent Graph
 - 本地执行
 - 运行观察
 - 官方模型服务
@@ -109,9 +110,11 @@ The Zeroth 官方模型服务支持两种收费方式：
 
 |用量包|价格|说明|
 | --------| ----------| --------------------------------|
-|Top-up|$20 / 次|为官方模型服务额外增加可用额度|
+|用量包（Quota pack）|$20 / 次|为官方模型服务额外增加可用额度|
 
 用量包不会改变你的订阅套餐，只会增加你的官方模型服务可用额度。
+
+两条值得知道的规则：用量包的用量按 1.25 倍速计量，同等额度下实际可用量略低于订阅额度；作为交换，用量包额度在账户有效期内不会过期——而订阅的月度额度过了账单周期就不结转。
 
 ## 四、第三方渠道如何收费
 
