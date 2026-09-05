@@ -41,6 +41,11 @@ reports the active mode on `/health`.
   `templates/presets/`. Blueprint nodes must reference a known preset;
   the preset system prompt is prepended to the node prompt at run time.
 
+## Isolation
+
+Blueprint node sessions run in `<workdir>/<run>/<node>`, created on launch.
+Adhoc sessions keep the requested workdir.
+
 ## Blueprint format
 
 `templates/<name>.json` with `nodes [{id, agent, prompt}]` and

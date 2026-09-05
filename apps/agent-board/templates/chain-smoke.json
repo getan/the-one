@@ -1,0 +1,11 @@
+{
+  "name": "chain-smoke",
+  "description": "Two-node handoff smoke test for real-model verification.",
+  "nodes": [
+    { "id": "maker", "agent": "echo", "prompt": "Output exactly this line and nothing else: HELLO_CHAIN" },
+    { "id": "checker", "agent": "echo", "prompt": "Repeat the previous output exactly and nothing else." }
+  ],
+  "edges": [
+    { "kind": "handoff", "from": "maker", "to": "checker", "instruction": "When maker finishes, hand its full output to checker and expect an exact repeat." }
+  ]
+}

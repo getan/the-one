@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -132,6 +132,7 @@ function startSessionRecord(fields) {
 
 async function launchSession(fields) {
   const session = fields.id ? fields : startSessionRecord(fields);
+  await mkdir(session.workdir, { recursive: true });
   store.putSession(session);
   await store.recordEvent({ type: 'session.created', run: session.run, session: session.id, node: session.node, blueprint: session.blueprint });
   const handle = runner.start(session, store.logPath(session.id), async (result) => {
@@ -219,6 +220,7 @@ async function runBlueprint(blueprint, input) {
   const handoffOrder = orderHandoffNodes(blueprint.nodes, edges);
   const chained = new Set(handoffOrder.filter((nodeId) => edges.some((edge) => edge.kind === 'handoff' && edge.to === nodeId)));
   const outputs = new Map();
+  const nodeWorkdir = (nodeId) => join(config.workdir, run.id, nodeId);
   const roots = handoffOrder.filter((nodeId) => !chained.has(nodeId));
   await Promise.all(roots.map(async (nodeId) => {
     const node = byId.get(nodeId);
@@ -226,7 +228,7 @@ async function runBlueprint(blueprint, input) {
     if (input) {
       parts.push('Task input: ' + input);
     }
-    const session = await launchSession({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: nodeId, run: run.id });
+    const session = await launchSession({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: nodeId, run: run.id, workdir: nodeWorkdir(nodeId) });
     run.sessions.push(session.id);
     await waitForSession(session.id, 1000 * 60 * 30);
     const tail = await readTailLines(store.logPath(session.id), 40);
@@ -248,7 +250,7 @@ async function runBlueprint(blueprint, input) {
         await store.recordEvent({ type: 'handoff.injected', run: run.id, session: null, node: nodeId, from: edge.from, instruction: edge.instruction.slice(0, 200) });
       }
     }
-    const session = await launchSession(startSessionRecord({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: nodeId, run: run.id }));
+    const session = await launchSession(startSessionRecord({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: nodeId, run: run.id, workdir: nodeWorkdir(nodeId) }));
     run.sessions.push(session.id);
     const finished = await waitForSession(session.id, 1000 * 60 * 30);
     const tail = await readTailLines(store.logPath(session.id), 40);
@@ -265,7 +267,7 @@ async function runBlueprint(blueprint, input) {
     if (input) {
       parts.push('Task input: ' + input);
     }
-    const session = await launchSession({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: node.id, run: run.id });
+    const session = await launchSession({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: node.id, run: run.id, workdir: nodeWorkdir(node.id) });
     run.sessions.push(session.id);
   }
   store.putRun(run);

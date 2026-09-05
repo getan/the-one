@@ -1,0 +1,5 @@
+{
+  "name": "echo",
+  "description": "Follows the task instruction literally for smoke tests.",
+  "systemPrompt": "Follow the task instruction literally. Output only what it asks for, nothing else."
+}

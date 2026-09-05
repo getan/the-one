@@ -160,6 +160,25 @@ describe('server', () => {
     assert.ok(listed.body.runs.some((run) => run.id === runId));
   });
 
+  it('isolates each node in its own workdir', async () => {
+    const started = await call('/api/blueprints/chain-smoke/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ input: '' }) });
+    assert.equal(started.status, 201);
+    const runId = started.body.run.id;
+    assert.equal(started.body.run.sessions.length, 2);
+    const detail = await call('/api/runs/' + runId);
+    for (const item of detail.body.run.sessions) {
+      await waitFor(item.id, ['done'], 15000);
+    }
+    const final = await call('/api/runs/' + runId);
+    for (const item of final.body.run.sessions) {
+      assert.ok(item.workdir.endsWith('/' + runId + '/' + item.node));
+      const stat = await import('node:fs/promises').then((fs) => fs.stat(item.workdir));
+      assert.ok(stat.isDirectory());
+    }
+    const timeline = await call('/api/runs/' + runId + '/timeline');
+    assert.ok(timeline.body.events.some((event) => event.type === 'handoff.injected' && event.from === 'maker'));
+  });
+
   it('serves the web page', async () => {
     const response = await fetch(base + '/');
     const text = await response.text();

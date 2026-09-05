@@ -143,4 +143,5 @@ content/docs
 - 2026-09-05 自动化测试 16/16：蓝图校验 5、mock runner 3、HTTP 全链路 7（含蓝图运行顺序断言）、真进程回归 1（stub 断言 stdin 关闭 + 参数透传）。沙箱禁本地监听，测试在沙箱外跑。
 - 2026-09-05 Mac 真机验证通过：`mode=codex`，`codex exec` 最小任务回 `BOARD_OK`、`exit 0`，Web 三栏页可开。途中修了三个 bug：子进程 stdin 未关闭导致 codex 空等；workdir 非信任目录需 `--skip-git-repo-check`（已做成 `AGENT_BOARD_CODEX_ARGS` 默认）；runner 变量作用域笔误。
 - 2026-09-05 P1 本地完整功能：Agent 预设（`templates/presets`，蓝图节点必须引用已知预设，运行时自动前置 system prompt，单会话也可指定 preset）；事件时间线（`run.started`→并行研究员→`handoff.injected`→director→reviewer→`run.finished`，会话挂 run 关联）；Web 页加只读 Graph 画布（按移交深度分层，handoff 金线/fanout 蓝线）与最新运行时间线。测试 19/19，活体 mock 全链路已验。途中修：时间线漏会话事件（补 run 关联）、旧用例跟进预设校验。
+- 2026-09-05 P2 真链验证：节点目录隔离（`<workdir>/<run>/<node>` 自动建）；`chain-smoke` 双节点真模型链——maker 输出 `HELLO_CHAIN`，经边指令注入 checker 并被原样复述，全 `done`。测试 20/20（含隔离断言）。
 - 下一步：P1 进镜像（`Containerfile` + 数据卷 + `Caddy` 片段，鉴权切 Caddy）。
