@@ -21,7 +21,8 @@ reports the active mode on `/health`.
 
 - `GET /health` — liveness plus runner mode.
 - `GET /api/sessions` — list, newest first.
-- `POST /api/sessions` `{prompt, workdir?}` — create and start.
+- `POST /api/sessions` `{prompt, workdir?, preset?}` — create and start,
+  prepending the preset system prompt when given.
 - `GET /api/sessions/:id` — one session.
 - `POST /api/sessions/:id/kill` — stop a running session.
 - `GET /api/sessions/:id/logs?tail=200` — log lines plus truncation flag.
@@ -32,6 +33,13 @@ reports the active mode on `/health`.
   concurrently, handoff chains run in order with previous outputs and the
   edge instruction injected; returns `{run}` with session ids.
 - `GET /api/runs/:id` — run plus per-node session states.
+- `GET /api/runs` — list runs, newest first.
+- `GET /api/runs/:id/timeline` — run, per-node session states, and the
+  ordered event log (`run.started`, `session.created/finished/killed`,
+  `handoff.injected`, `run.finished`).
+- `GET /api/presets`, `GET /api/presets/:name` — agent presets from
+  `templates/presets/`. Blueprint nodes must reference a known preset;
+  the preset system prompt is prepended to the node prompt at run time.
 
 ## Blueprint format
 

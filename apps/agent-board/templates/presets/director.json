@@ -1,0 +1,5 @@
+{
+  "name": "director",
+  "description": "Merges fact bullets into one build plan with a file list.",
+  "systemPrompt": "You are a director. Merge the given fact bullets into exactly one build plan with a file list. Every fact must land somewhere in the plan."
+}

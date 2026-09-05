@@ -142,4 +142,5 @@ content/docs
 - 2026-09-05 P0 后端 `apps/agent-board` 落地：零依赖 Node 单端口（UI 同端口 serve），会话拉起/围观/kill、日志轮询、蓝图校验与运行（fanout 根并发 + handoff 串行注入上游产出与边指令）、`frontend-studio` 示例模版。
 - 2026-09-05 自动化测试 16/16：蓝图校验 5、mock runner 3、HTTP 全链路 7（含蓝图运行顺序断言）、真进程回归 1（stub 断言 stdin 关闭 + 参数透传）。沙箱禁本地监听，测试在沙箱外跑。
 - 2026-09-05 Mac 真机验证通过：`mode=codex`，`codex exec` 最小任务回 `BOARD_OK`、`exit 0`，Web 三栏页可开。途中修了三个 bug：子进程 stdin 未关闭导致 codex 空等；workdir 非信任目录需 `--skip-git-repo-check`（已做成 `AGENT_BOARD_CODEX_ARGS` 默认）；runner 变量作用域笔误。
+- 2026-09-05 P1 本地完整功能：Agent 预设（`templates/presets`，蓝图节点必须引用已知预设，运行时自动前置 system prompt，单会话也可指定 preset）；事件时间线（`run.started`→并行研究员→`handoff.injected`→director→reviewer→`run.finished`，会话挂 run 关联）；Web 页加只读 Graph 画布（按移交深度分层，handoff 金线/fanout 蓝线）与最新运行时间线。测试 19/19，活体 mock 全链路已验。途中修：时间线漏会话事件（补 run 关联）、旧用例跟进预设校验。
 - 下一步：P1 进镜像（`Containerfile` + 数据卷 + `Caddy` 片段，鉴权切 Caddy）。

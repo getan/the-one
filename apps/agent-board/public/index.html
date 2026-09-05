@@ -38,11 +38,15 @@
     <h3>Work chain <button id="killBtn">Kill</button></h3>
     <div id="meta"></div>
     <pre id="logs">Select a session.</pre>
+    <h3>Run timeline</h3>
+    <pre id="timeline">No runs yet.</pre>
   </section>
   <section>
     <h3>Roster / Blueprints</h3>
     <div id="roster"></div>
     <div id="blueprints"></div>
+    <h3>Graph</h3>
+    <svg id="graph" width="250" height="300" style="border:1px solid #2a2d33;border-radius:8px;"></svg>
   </section>
 </main>
 <script>
@@ -79,6 +83,8 @@ async function refresh() {
     card.textContent = item.name + ': ' + item.nodes + ' nodes, ' + item.edges + ' edges';
     info.appendChild(card);
   }
+  await renderGraph();
+  await renderTimeline();
   if (activeId) {
     const detail = await api('/api/sessions/' + activeId + '/logs?tail=200');
     document.getElementById('meta').textContent = detail.session.node + ' ' + detail.session.status;
@@ -92,6 +98,58 @@ async function refresh() {
       roster.appendChild(card);
     }
   }
+}
+function depthOf(blueprint) {
+  const depth = new Map(blueprint.nodes.map((node) => [node.id, 0]));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const edge of blueprint.edges || []) {
+      if (edge.kind !== 'handoff') continue;
+      const next = (depth.get(edge.from) || 0) + 1;
+      if (next > (depth.get(edge.to) || 0)) { depth.set(edge.to, next); changed = true; }
+    }
+  }
+  return depth;
+}
+async function renderGraph() {
+  const name = document.getElementById('blueprint').value;
+  const svg = document.getElementById('graph');
+  if (!name) { svg.innerHTML = ''; return; }
+  const data = await api('/api/blueprints/' + name);
+  const blueprint = data.blueprint;
+  const depth = depthOf(blueprint);
+  const lanes = new Map();
+  const pos = new Map();
+  for (const node of blueprint.nodes) {
+    const level = depth.get(node.id) || 0;
+    const lane = lanes.get(level) || 0;
+    lanes.set(level, lane + 1);
+    pos.set(node.id, { x: 40 + lane * 85, y: 40 + level * 80 });
+  }
+  let html = '';
+  for (const edge of blueprint.edges || []) {
+    const a = pos.get(edge.from);
+    const b = pos.get(edge.to);
+    if (!a || !b) continue;
+    const color = edge.kind === 'handoff' ? '#c9b98a' : '#5a7a96';
+    html += '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="' + color + '" stroke-width="1.5"/>';
+  }
+  for (const node of blueprint.nodes) {
+    const p = pos.get(node.id);
+    html += '<circle cx="' + p.x + '" cy="' + p.y + '" r="18" fill="#171a1f" stroke="#c9b98a"/>';
+    html += '<text x="' + p.x + '" y="' + (p.y + 34) + '" fill="#e8e4d8" font-size="9" text-anchor="middle">' + node.id + '</text>';
+  }
+  svg.innerHTML = html;
+}
+async function renderTimeline() {
+  const runs = await api('/api/runs');
+  const box = document.getElementById('timeline');
+  if (!runs.runs.length) { box.textContent = 'No runs yet.'; return; }
+  const detail = await api('/api/runs/' + runs.runs[0].id + '/timeline');
+  const states = detail.run.sessions.map((item) => (item.node || item.id.slice(-6)) + ':' + item.status).join(' ');
+  const events = detail.events.map((event) => event.ts.slice(11, 19) + ' ' + event.type + (event.node ? ' ' + event.node : '')).join('\n');
+  box.textContent = states + '\n' + events;
 }
 document.getElementById('createForm').onsubmit = async (event) => {
   event.preventDefault();

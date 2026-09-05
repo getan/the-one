@@ -13,6 +13,7 @@ const config = {
   port: Number(process.env.AGENT_BOARD_PORT || 8081),
   dataDir: resolve(rootDir, process.env.AGENT_BOARD_DATA || 'data'),
   templatesDir: resolve(rootDir, process.env.AGENT_BOARD_TEMPLATES || 'templates'),
+  presetsDir: resolve(rootDir, process.env.AGENT_BOARD_PRESETS || 'templates/presets'),
   publicDir: resolve(rootDir, 'public'),
   codexBin: process.env.AGENT_BOARD_CODEX || 'codex',
   codexArgs: (process.env.AGENT_BOARD_CODEX_ARGS || '--skip-git-repo-check').split(/\s+/).filter((part) => part.length > 0),
@@ -103,6 +104,7 @@ function toPublicSession(session) {
     workdir: session.workdir,
     blueprint: session.blueprint,
     node: session.node,
+    run: session.run || null,
     status: session.status,
     pid: session.pid,
     exitCode: session.exitCode,
@@ -119,6 +121,7 @@ function startSessionRecord(fields) {
     workdir: fields.workdir || config.workdir,
     blueprint: fields.blueprint || null,
     node: fields.node || null,
+    run: fields.run || null,
     status: 'running',
     pid: null,
     exitCode: null,
@@ -127,9 +130,10 @@ function startSessionRecord(fields) {
   };
 }
 
-async function launchSession(session) {
+async function launchSession(fields) {
+  const session = fields.id ? fields : startSessionRecord(fields);
   store.putSession(session);
-  await store.persist();
+  await store.recordEvent({ type: 'session.created', run: session.run, session: session.id, node: session.node, blueprint: session.blueprint });
   const handle = runner.start(session, store.logPath(session.id), async (result) => {
     const current = store.getSession(session.id);
     if (!current) {
@@ -139,7 +143,7 @@ async function launchSession(session) {
     current.exitCode = result.exitCode;
     current.finishedAt = new Date().toISOString();
     store.putSession(current);
-    await store.persist();
+    await store.recordEvent({ type: current.status === 'killed' ? 'session.killed' : 'session.finished', run: current.run, session: session.id, node: session.node, blueprint: session.blueprint, exitCode: current.exitCode });
   });
   session.pid = handle.pid;
   store.putSession(session);
@@ -160,6 +164,28 @@ function waitForSession(sessionId, timeoutMs) {
   });
 }
 
+async function listPresets() {
+  const files = (await readdir(config.presetsDir)).filter((name) => name.endsWith('.json'));
+  const items = [];
+  for (const file of files) {
+    items.push(JSON.parse(await readFile(join(config.presetsDir, file), 'utf8')));
+  }
+  return items;
+}
+
+async function loadPreset(name) {
+  const target = resolve(config.presetsDir, name + '.json');
+  if (!target.startsWith(config.presetsDir) || !existsSync(target)) {
+    return null;
+  }
+  return JSON.parse(await readFile(target, 'utf8'));
+}
+
+async function presetNames() {
+  const presets = await listPresets();
+  return new Set(presets.map((preset) => preset.name));
+}
+
 async function loadBlueprint(name) {
   const target = resolve(config.templatesDir, name + '.json');
   if (!target.startsWith(config.templatesDir) || !existsSync(target)) {
@@ -170,12 +196,26 @@ async function loadBlueprint(name) {
 
 async function runBlueprint(blueprint, input) {
   const errors = validateBlueprint(blueprint);
+  const known = await presetNames();
+  for (const node of blueprint.nodes || []) {
+    if (node && !known.has(node.agent)) {
+      errors.push('node ' + node.id + ' uses unknown agent preset: ' + node.agent);
+    }
+  }
   if (errors.length > 0) {
     return { errors };
   }
+  const presets = new Map((await listPresets()).map((preset) => [preset.name, preset]));
+  const effectivePrompt = (node) => {
+    const preset = presets.get(node.agent);
+    const head = preset && preset.systemPrompt ? preset.systemPrompt + '\n\n' : '';
+    return head + node.prompt;
+  };
   const edges = blueprint.edges || [];
   const byId = new Map(blueprint.nodes.map((node) => [node.id, node]));
   const run = { id: runner.newId('run'), blueprint: blueprint.name, createdAt: new Date().toISOString(), sessions: [] };
+  store.putRun(run);
+  await store.recordEvent({ type: 'run.started', run: run.id, blueprint: blueprint.name });
   const handoffOrder = orderHandoffNodes(blueprint.nodes, edges);
   const chained = new Set(handoffOrder.filter((nodeId) => edges.some((edge) => edge.kind === 'handoff' && edge.to === nodeId)));
   const outputs = new Map();
@@ -186,7 +226,7 @@ async function runBlueprint(blueprint, input) {
     if (input) {
       parts.push('Task input: ' + input);
     }
-    const session = await launchSession(startSessionRecord({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: nodeId }));
+    const session = await launchSession({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: nodeId, run: run.id });
     run.sessions.push(session.id);
     await waitForSession(session.id, 1000 * 60 * 30);
     const tail = await readTailLines(store.logPath(session.id), 40);
@@ -197,7 +237,7 @@ async function runBlueprint(blueprint, input) {
       continue;
     }
     const node = byId.get(nodeId);
-    const parts = [node.prompt];
+    const parts = [effectivePrompt(node)];
     if (input) {
       parts.push('Task input: ' + input);
     }
@@ -205,9 +245,10 @@ async function runBlueprint(blueprint, input) {
       if (edge.kind === 'handoff' && edge.to === nodeId && outputs.has(edge.from)) {
         parts.push('Handoff instruction: ' + edge.instruction);
         parts.push('Previous output from ' + edge.from + ': ' + outputs.get(edge.from));
+        await store.recordEvent({ type: 'handoff.injected', run: run.id, session: null, node: nodeId, from: edge.from, instruction: edge.instruction.slice(0, 200) });
       }
     }
-    const session = await launchSession(startSessionRecord({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: nodeId }));
+    const session = await launchSession(startSessionRecord({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: nodeId, run: run.id }));
     run.sessions.push(session.id);
     const finished = await waitForSession(session.id, 1000 * 60 * 30);
     const tail = await readTailLines(store.logPath(session.id), 40);
@@ -220,15 +261,15 @@ async function runBlueprint(blueprint, input) {
     if (chained.has(node.id) || run.sessions.some((sessionId) => store.getSession(sessionId)?.node === node.id)) {
       continue;
     }
-    const parts = [node.prompt];
+    const parts = [effectivePrompt(node)];
     if (input) {
       parts.push('Task input: ' + input);
     }
-    const session = await launchSession(startSessionRecord({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: node.id }));
+    const session = await launchSession({ prompt: parts.join('\n\n'), blueprint: blueprint.name, node: node.id, run: run.id });
     run.sessions.push(session.id);
   }
   store.putRun(run);
-  await store.persist();
+  await store.recordEvent({ type: 'run.finished', run: run.id, blueprint: blueprint.name });
   return { run };
 }
 
@@ -254,7 +295,16 @@ export function createApp() {
           sendJson(response, 400, { error: 'prompt is required' });
           return;
         }
-        const session = await launchSession(startSessionRecord({ prompt: body.prompt, workdir: body.workdir }));
+        let prompt = body.prompt;
+        if (typeof body.preset === 'string' && body.preset.length > 0) {
+          const preset = await loadPreset(body.preset);
+          if (!preset) {
+            sendJson(response, 400, { error: 'unknown preset: ' + body.preset });
+            return;
+          }
+          prompt = preset.systemPrompt + '\n\n' + prompt;
+        }
+        const session = await launchSession({ prompt, workdir: body.workdir });
         sendJson(response, 201, { session: toPublicSession(session) });
         return;
       }
@@ -326,8 +376,30 @@ export function createApp() {
 
       if (request.method === 'POST' && segments.join('/') === 'api/blueprints/validate') {
         const body = await parseJsonBody(request);
-        const errors = validateBlueprint(body.blueprint || body);
+        const candidate = body.blueprint || body;
+        const errors = validateBlueprint(candidate);
+        const known = await presetNames();
+        for (const node of candidate.nodes || []) {
+          if (node && !known.has(node.agent)) {
+            errors.push('node ' + node.id + ' uses unknown agent preset: ' + node.agent);
+          }
+        }
         sendJson(response, 200, { ok: errors.length === 0, errors });
+        return;
+      }
+
+      if (request.method === 'GET' && segments.join('/') === 'api/presets') {
+        sendJson(response, 200, { presets: await listPresets() });
+        return;
+      }
+
+      if (request.method === 'GET' && segments[0] === 'api' && segments[1] === 'presets' && segments.length === 3) {
+        const preset = await loadPreset(segments[2]);
+        if (!preset) {
+          sendJson(response, 404, { error: 'preset not found' });
+          return;
+        }
+        sendJson(response, 200, { preset });
         return;
       }
 
@@ -347,6 +419,11 @@ export function createApp() {
         return;
       }
 
+      if (request.method === 'GET' && segments.join('/') === 'api/runs') {
+        sendJson(response, 200, { runs: store.listRuns() });
+        return;
+      }
+
       if (request.method === 'GET' && segments[0] === 'api' && segments[1] === 'runs' && segments.length === 3) {
         const run = store.getRun(segments[2]);
         if (!run) {
@@ -358,6 +435,20 @@ export function createApp() {
           return session ? toPublicSession(session) : { id: sessionId, status: 'unknown' };
         });
         sendJson(response, 200, { run: { ...run, sessions } });
+        return;
+      }
+
+      if (request.method === 'GET' && segments[0] === 'api' && segments[1] === 'runs' && segments[3] === 'timeline') {
+        const run = store.getRun(segments[2]);
+        if (!run) {
+          sendJson(response, 404, { error: 'run not found' });
+          return;
+        }
+        const sessions = run.sessions.map((sessionId) => {
+          const session = store.getSession(sessionId);
+          return session ? toPublicSession(session) : { id: sessionId, status: 'unknown' };
+        });
+        sendJson(response, 200, { run: { ...run, sessions }, events: store.listEvents({ run: run.id }) });
         return;
       }
 
