@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Board</title>
+<style>
+  body { margin: 0; background: #0b0d10; color: #e8e4d8; font-family: sans-serif; }
+  header { padding: 12px 16px; border-bottom: 1px solid #2a2d33; display: flex; gap: 12px; align-items: center; }
+  main { display: grid; grid-template-columns: 280px 1fr 280px; gap: 0; height: calc(100vh - 49px); }
+  section { padding: 12px 16px; overflow-y: auto; }
+  section + section { border-left: 1px solid #2a2d33; }
+  .card { border: 1px solid #2a2d33; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; }
+  .card.active { border-color: #c9b98a; }
+  pre { white-space: pre-wrap; word-break: break-word; background: #111318; padding: 10px; border-radius: 8px; }
+  button, input, textarea, select { background: #171a1f; color: #e8e4d8; border: 1px solid #2a2d33; border-radius: 6px; padding: 6px 8px; }
+  button { cursor: pointer; }
+  form { display: grid; gap: 8px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header><strong>Agent Board</strong><span id="mode"></span></header>
+<main>
+  <section>
+    <h3>Sessions</h3>
+    <form id="createForm">
+      <textarea id="prompt" rows="3" placeholder="Task for a Codex session"></textarea>
+      <button type="submit">New session</button>
+    </form>
+    <form id="runForm">
+      <select id="blueprint"></select>
+      <input id="runInput" placeholder="Run input (optional)" />
+      <button type="submit">Run blueprint</button>
+    </form>
+    <div id="sessions"></div>
+  </section>
+  <section>
+    <h3>Work chain <button id="killBtn">Kill</button></h3>
+    <div id="meta"></div>
+    <pre id="logs">Select a session.</pre>
+  </section>
+  <section>
+    <h3>Roster / Blueprints</h3>
+    <div id="roster"></div>
+    <div id="blueprints"></div>
+  </section>
+</main>
+<script>
+let activeId = null;
+async function api(path, options) {
+  const response = await fetch(path, options);
+  return response.json();
+}
+async function refresh() {
+  const health = await api('/health');
+  document.getElementById('mode').textContent = 'mode=' + health.mode;
+  const sessions = await api('/api/sessions');
+  const list = document.getElementById('sessions');
+  list.innerHTML = '';
+  for (const item of sessions.sessions) {
+    const card = document.createElement('div');
+    card.className = 'card' + (item.id === activeId ? ' active' : '');
+    card.textContent = (item.node ? item.node + ' ' : '') + item.status + ' ' + item.id.slice(-6);
+    card.onclick = () => { activeId = item.id; refresh(); };
+    list.appendChild(card);
+  }
+  const blueprints = await api('/api/blueprints');
+  const select = document.getElementById('blueprint');
+  select.innerHTML = '';
+  const info = document.getElementById('blueprints');
+  info.innerHTML = '';
+  for (const item of blueprints.blueprints) {
+    const option = document.createElement('option');
+    option.value = item.name;
+    option.textContent = item.name + ' (' + item.nodes + ' nodes)';
+    select.appendChild(option);
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.textContent = item.name + ': ' + item.nodes + ' nodes, ' + item.edges + ' edges';
+    info.appendChild(card);
+  }
+  if (activeId) {
+    const detail = await api('/api/sessions/' + activeId + '/logs?tail=200');
+    document.getElementById('meta').textContent = detail.session.node + ' ' + detail.session.status;
+    document.getElementById('logs').textContent = detail.lines.join('\n');
+    const roster = document.getElementById('roster');
+    roster.innerHTML = '';
+    for (const item of sessions.sessions) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.textContent = (item.node || 'adhoc') + ' ' + item.status;
+      roster.appendChild(card);
+    }
+  }
+}
+document.getElementById('createForm').onsubmit = async (event) => {
+  event.preventDefault();
+  const prompt = document.getElementById('prompt').value;
+  if (!prompt) return;
+  const created = await api('/api/sessions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) });
+  activeId = created.session.id;
+  document.getElementById('prompt').value = '';
+  refresh();
+};
+document.getElementById('runForm').onsubmit = async (event) => {
+  event.preventDefault();
+  const name = document.getElementById('blueprint').value;
+  const input = document.getElementById('runInput').value;
+  await api('/api/blueprints/' + name + '/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ input }) });
+  refresh();
+};
+document.getElementById('killBtn').onclick = async () => {
+  if (!activeId) return;
+  await api('/api/sessions/' + activeId + '/kill', { method: 'POST' });
+  refresh();
+};
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

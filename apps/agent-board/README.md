@@ -1,0 +1,52 @@
+# agent-board
+
+Web multi-agent board, phase zero. One port serves the UI and the JSON API.
+Sessions spawn `codex exec`; blueprints describe handoff chains and fanouts.
+
+## Run
+
+```sh
+npm start
+```
+
+Environment: `AGENT_BOARD_HOST` (default 127.0.0.1), `AGENT_BOARD_PORT`
+(default 8081), `AGENT_BOARD_DATA` (default ./data), `AGENT_BOARD_TEMPLATES`
+(default ./templates), `AGENT_BOARD_CODEX` (default codex),
+`AGENT_BOARD_WORKDIR` (default .), `AGENT_BOARD_MOCK=1` forces the mock
+runner with scripted log lines. Without the flag the server uses the real
+Codex CLI when the binary works, otherwise it also falls back to mock and
+reports the active mode on `/health`.
+
+## API
+
+- `GET /health` — liveness plus runner mode.
+- `GET /api/sessions` — list, newest first.
+- `POST /api/sessions` `{prompt, workdir?}` — create and start.
+- `GET /api/sessions/:id` — one session.
+- `POST /api/sessions/:id/kill` — stop a running session.
+- `GET /api/sessions/:id/logs?tail=200` — log lines plus truncation flag.
+- `GET /api/blueprints` — templates in `templates/`.
+- `GET /api/blueprints/:name` — one blueprint.
+- `POST /api/blueprints/validate` `{blueprint}` — `{ok, errors}`.
+- `POST /api/blueprints/:name/run` `{input?}` — fanout roots run
+  concurrently, handoff chains run in order with previous outputs and the
+  edge instruction injected; returns `{run}` with session ids.
+- `GET /api/runs/:id` — run plus per-node session states.
+
+## Blueprint format
+
+`templates/<name>.json` with `nodes [{id, agent, prompt}]` and
+`edges [{kind: handoff|fanout, from, to, instruction?}]`. Handoff edges
+require an instruction and must form a DAG.
+
+## Tests and acceptance
+
+```sh
+npm test
+```
+
+`test/` covers blueprint validation, the mock runner, and the full HTTP
+surface against a child-process server on an ephemeral port with temp
+dirs. Mac acceptance mirrors the suite with curl: create a session, poll
+until `done`, read logs, kill a second session, run `frontend-studio`,
+open `/` in a browser.

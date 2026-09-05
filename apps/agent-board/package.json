@@ -1,0 +1,11 @@
+{
+  "name": "agent-board",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Web multi-agent board: Codex sessions plus blueprint runs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/blueprints.test.js test/runner.test.js test/server.test.js test/real-stub.test.js",
+    "accept": "AGENT_BOARD_MOCK=1 AGENT_BOARD_PORT=8081 node server.js"
+  }
+}
