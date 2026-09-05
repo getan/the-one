@@ -1,91 +1,68 @@
 <div align="center">
-  <img src="./app_icon.png" alt="The One 应用图标" width="96" />
+  <img src="./app_icon.png" alt="The One" width="96" />
 
-  <h1>The Zeroth Docs</h1>
+  <h1>The One</h1>
 
   <p>
-    <strong>The One Desktop 的公开双语文档仓库。</strong>
+    <strong>A web-deployable multi-agent management and orchestration tool — one container per engineer, next to code-server.</strong>
   </p>
 
   <p>
-    <a href="./README.md">English</a>
+    <a href="./README.md">简体中文（完整方案）</a>
     |
-    <strong>简体中文</strong>
+    <strong>English</strong>
   </p>
 
   <p>
-    <a href="https://the-zeroth.com">官网</a>
+    <a href="https://the-zeroth.com">The Zeroth site (concept reference)</a>
     |
-    <a href="https://github.com/rainyflash/the-zeroth-docs/releases">发布记录</a>
+    <a href="https://github.com/getan/the-one">This repo</a>
   </p>
 </div>
 
 ---
 
-## 仓库作用
+## Background
 
-这个仓库用于维护 The Zeroth 官网使用的 The One Desktop 公开双语文档。
+We run AI cloud dev spaces: many podman containers on one ECS host, one container per engineer, accessed from Mac browsers through a unified entry (Caddy + shared auth). code-server is already baked into the shared image, one per person.
 
-这里存放的是面向用户的文档内容、发布记录、截图和演示视频资源，不存放产品源码、私有基础设施、内部实现细节、密钥或部署专用配置。
+This project adds a second web service in the same delivery shape: multi-agent management and orchestration, one per container, behind the same Caddy. Phase one supports Codex only; develop on Mac and trial in a local browser first. Full plan in Chinese: [`README.md`](./README.md).
 
-## 文档结构
+## Plan in brief
 
-正式文档位于 `content/docs/zh` 和 `content/docs/en`。两种语言使用相同 slug，站点可以基于同一路由结构做语言切换。
+- **Shell: Orca (open-source MIT, real implementation).** Sessions, parallel agents, workspace isolation, log/terminal streaming. It already ships a web entry (`dev:web / build:web`, `src/renderer/web-index.html` → `out/web`, built for reverse-proxy subpaths).
+- **Soul: The One by The Zeroth (closed-source, concepts only).** Graph blueprints (nodes bind agent presets, edges are handoff instructions), a router agent spawning subgraphs, god-view observability, teams saved as reusable genes.
+- **Open-source pieces.** `LangGraph.js` as the runtime (TS stack, nodes + edges + state + checkpoints); handoff semantics after the OpenAI Agents SDK; blueprint-as-gene file format inspired by `agent-blueprint` (single-YAML + lint/test/trace discipline).
+- **DAG vs parallel.** The One's Graph is a collaboration DAG (relay race, nestable via `create_subgraph`); Orca's parallel mode is a race pool (one prompt fanned out to N isolated worktrees, human merges the winner). Unifier: Orca fan-out = The One's Division; DAG for collaboration flow, parallel pools inside nodes, edges define handoff and acceptance only.
+
+## Deployment: like code-server
 
 ```text
-content/docs
-+-- zh/                            中文文档
-|   +-- index.mdx                  入口页
-|   +-- start/                     快速入门、模型价格与发布记录
-|   |   `-- release-notes/         版本发布记录
-|   +-- the-one-app/               The One 应用操作
-|   |   +-- definition-space/      Profile、MCP、Agent 与 Graph
-|   |   +-- run/                   运行入口
-|   |   `-- settings/              Space 与 API 配置
-|   `-- multi-agent-architecture/  Multi-Agent 工程思想
-|       +-- single-agent/          模型、工具、上下文、ReAct、行动链
-|       +-- evolution/             从单一 Agent 到 Multi-Agent
-|       `-- more-possibilities/    通讯、上下文编辑、Dynamic Graph
-`-- en/                            English documentation
-    +-- index.mdx                  Entry page
-    +-- start/                     Quick start, pricing, and release notes
-    |   `-- release-notes/         Release note versions
-    +-- the-one-app/               The One app guide
-    |   +-- definition-space/      Profile, MCP, Agent, and Graph
-    |   +-- run/                   Runtime entry
-    |   `-- settings/              Space and API configuration
-    `-- multi-agent-architecture/  Multi-Agent architecture
-        +-- single-agent/          Model, tools, context, ReAct, action sequence
-        +-- evolution/             From single Agent to Multi-Agent
-        `-- more-possibilities/    Communication, context editing, dynamic Graph
+ECS host (root owned by us)
+├── podman container A (teammate A): code-server :8080 + agent-board :8081 + data volume
+├── podman container B (teammate B): code-server :8080 + agent-board :8081 + data volume
+        ↑
+   Caddy per-user routing + unified auth (exists; localhost:8081 for local trials)
 ```
 
-## 草稿与资源
+Single port, no database: the Node service serves the static UI on the same port, state on a file volume. Guardrails: no unbounded proliferation on shared ECS, per-container budgets, one-click teardown, audit log first.
 
-- `docs_md`：本地新文档草稿来源。该目录已被 Git 忽略。
-- `resources`：文档中引用的视频资源。
-- `public/docs-assets/images`：文档页面使用的截图资源。
-- `public/docs-assets/videos`：文档页面使用的演示视频资源。
+## Three changes to Orca Web
 
-## 生成方式
+Orca Web exists but is a remote-control client (browser shell, execution stays on the host, pairing-based). We change: (1) auth — pairing codes become Caddy auth with per-container auto-connect; (2) runtime — host side (`orcad`/remote execution) packed in the container, Codex only with folder-level isolation first; (3) feature — a first-class `Graphs` view (blueprint list, canvas read-only first, handoff text, run timeline), Electron-only pieces replaced with web implementations (xterm.js, HTTP/SSE).
 
-文档由 `scripts/migrate_docs_md.py` 从 `docs_md` 迁移生成：
+## Phases
 
-```powershell
-python scripts\migrate_docs_md.py
-```
+- **P0 (Mac local):** Codex only, folder isolation, spawn/observe/kill, log polling.
+- **P1 (into the image):** single port + volume + Caddy snippet next to code-server, auth via Caddy.
+- **P2 (The One lite):** handoff edges, template versioning, `.zerospace`-style import/export; then worktree isolation and more backends.
 
-脚本会删除旧的 `content/docs` 占位内容，重新生成 `zh` / `en` 双语文档树，复制截图和视频到 `public/docs-assets`，并把草稿中的图片与视频占位替换为可部署访问的 `/docs-assets/...` 引用。
+## Docs area (kept from the-zeroth-docs)
 
-## 维护原则
+Canonical docs live under `content/docs/en` and `content/docs/zh` with identical slugs for language switching without route drift (app guide, settings, single-agent → multi-agent evolution, release notes). Drafts in local `docs_md` (git-ignored); images/videos under `public/docs-assets`; regenerate via `python scripts\migrate_docs_md.py`. Treat docs as concept/acceptance reference, not as implementation protocol.
 
-- 中英文文档必须保持相同 slug，避免语言切换时路由漂移。
-- 面向用户的表达放进 `content/docs`，原始草稿放进本地 `docs_md`。
-- 截图和视频必须走 `public/docs-assets`，不要在页面里引用本地草稿路径。
-- 不要在这个仓库提交产品源码、密钥、内部架构细节或部署专用配置。
+## Maintenance
 
-## 内容边界
-
-The One 是一款为 Multi-Agent 架构设计的桌面应用，用来搭建、运行、观察和迭代多智能体系统。
-
-这个仓库只负责公开文档表达。真正的桌面端实现、后端服务、账号系统、模型调用实现和内部编排逻辑都不在这里。
+- Keep en/zh slugs identical; user-facing prose in `content/docs`, raw drafts in local `docs_md`; screenshots/videos only via `public/docs-assets`.
+- Product code goes under `apps/`; never commit secrets, accounts, or private infrastructure.
+- Remotes: `origin` = `https://github.com/getan/the-one.git` (this project), `upstream` = original docs upstream (read-only concept sync).
