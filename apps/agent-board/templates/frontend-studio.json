@@ -2,16 +2,56 @@
   "name": "frontend-studio",
   "description": "Two researchers in parallel, then a reviewer handoff chain.",
   "nodes": [
-    { "id": "researcher_a", "agent": "researcher", "prompt": "Collect three reference layouts for the requested page. Output bullet facts only." },
-    { "id": "researcher_b", "agent": "researcher", "prompt": "Collect three copy drafts for the requested page. Output bullet facts only." },
-    { "id": "director", "agent": "director", "prompt": "Merge the researchers facts into one build plan with file list." },
-    { "id": "reviewer", "agent": "reviewer", "prompt": "Review the build plan for missing files and contradictions. Output PASS or blocking issues." }
+    {
+      "id": "researcher_a",
+      "agent": "researcher",
+      "prompt": "Collect three reference layouts for the requested page. Output bullet facts only."
+    },
+    {
+      "id": "researcher_b",
+      "agent": "researcher",
+      "prompt": "Collect three copy drafts for the requested page. Output bullet facts only."
+    },
+    {
+      "id": "director",
+      "agent": "director",
+      "prompt": "Merge the researchers facts into one build plan with file list."
+    },
+    {
+      "id": "reviewer",
+      "agent": "reviewer",
+      "prompt": "Review the build plan for missing files and contradictions. Output PASS or blocking issues."
+    }
   ],
   "edges": [
-    { "kind": "fanout", "from": "director", "to": "researcher_a" },
-    { "kind": "fanout", "from": "director", "to": "researcher_b" },
-    { "kind": "handoff", "from": "researcher_a", "to": "director", "instruction": "When researcher_a finishes, hand its fact bullets to director so the plan covers every layout fact." },
-    { "kind": "handoff", "from": "researcher_b", "to": "director", "instruction": "When researcher_b finishes, hand its copy bullets to director so the plan covers every copy fact." },
-    { "kind": "handoff", "from": "director", "to": "reviewer", "instruction": "When the build plan is ready, hand the full plan to reviewer and expect PASS or a blocking-issue list." }
-  ]
+    {
+      "kind": "fanout",
+      "from": "director",
+      "to": "researcher_a"
+    },
+    {
+      "kind": "fanout",
+      "from": "director",
+      "to": "researcher_b"
+    },
+    {
+      "kind": "handoff",
+      "from": "researcher_a",
+      "to": "director",
+      "instruction": "When researcher_a finishes, hand its fact bullets to director so the plan covers every layout fact."
+    },
+    {
+      "kind": "handoff",
+      "from": "researcher_b",
+      "to": "director",
+      "instruction": "When researcher_b finishes, hand its copy bullets to director so the plan covers every copy fact."
+    },
+    {
+      "kind": "handoff",
+      "from": "director",
+      "to": "reviewer",
+      "instruction": "When the build plan is ready, hand the full plan to reviewer and expect PASS or a blocking-issue list."
+    }
+  ],
+  "version": "0.1.0"
 }

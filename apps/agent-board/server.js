@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { readFile, readdir, mkdir } from 'node:fs/promises';
+import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -187,9 +187,31 @@ async function presetNames() {
   return new Set(presets.map((preset) => preset.name));
 }
 
+
+function userTemplatesDir() {
+  return join(config.dataDir, 'templates');
+}
+
+async function templateFiles() {
+  const seen = new Map();
+  for (const dir of [config.templatesDir, userTemplatesDir()]) {
+    let files = [];
+    try {
+      files = (await readdir(dir)).filter((name) => name.endsWith('.json'));
+    } catch {
+      files = [];
+    }
+    for (const file of files) {
+      seen.set(file, join(dir, file));
+    }
+  }
+  return seen;
+}
+
 async function loadBlueprint(name) {
-  const target = resolve(config.templatesDir, name + '.json');
-  if (!target.startsWith(config.templatesDir) || !existsSync(target)) {
+  const files = await templateFiles();
+  const target = files.get(name + '.json');
+  if (!target || !existsSync(target)) {
     return null;
   }
   return JSON.parse(await readFile(target, 'utf8'));
@@ -214,7 +236,7 @@ async function runBlueprint(blueprint, input) {
   };
   const edges = blueprint.edges || [];
   const byId = new Map(blueprint.nodes.map((node) => [node.id, node]));
-  const run = { id: runner.newId('run'), blueprint: blueprint.name, createdAt: new Date().toISOString(), sessions: [] };
+  const run = { id: runner.newId('run'), blueprint: blueprint.name, blueprintVersion: blueprint.version || null, createdAt: new Date().toISOString(), sessions: [] };
   store.putRun(run);
   await store.recordEvent({ type: 'run.started', run: run.id, blueprint: blueprint.name });
   const handoffOrder = orderHandoffNodes(blueprint.nodes, edges);
@@ -356,11 +378,11 @@ export function createApp() {
       }
 
       if (request.method === 'GET' && segments.join('/') === 'api/blueprints') {
-        const files = (await readdir(config.templatesDir)).filter((name) => name.endsWith('.json'));
+        const files = await templateFiles();
         const items = [];
-        for (const file of files) {
-          const blueprint = JSON.parse(await readFile(join(config.templatesDir, file), 'utf8'));
-          items.push({ name: blueprint.name || file.replace(/\.json$/, ''), nodes: (blueprint.nodes || []).length, edges: (blueprint.edges || []).length });
+        for (const [file, full] of files) {
+          const blueprint = JSON.parse(await readFile(full, 'utf8'));
+          items.push({ name: blueprint.name || file.replace(/\.json$/, ''), version: blueprint.version || null, nodes: (blueprint.nodes || []).length, edges: (blueprint.edges || []).length, origin: full.startsWith(userTemplatesDir()) ? 'space' : 'factory' });
         }
         sendJson(response, 200, { blueprints: items });
         return;
@@ -402,6 +424,61 @@ export function createApp() {
           return;
         }
         sendJson(response, 200, { preset });
+        return;
+      }
+
+      if (request.method === 'POST' && segments.join('/') === 'api/spaces/export') {
+        const body = await parseJsonBody(request).catch(() => ({}));
+        const run = body.run ? store.getRun(body.run) : null;
+        if (body.run && !run) {
+          sendJson(response, 404, { error: 'run not found' });
+          return;
+        }
+        const files = await templateFiles();
+        const blueprints = [];
+        for (const [file, full] of files) {
+          if (!full.startsWith(userTemplatesDir())) {
+            continue;
+          }
+          blueprints.push(JSON.parse(await readFile(full, 'utf8')));
+        }
+        const bundle = { format: 'agent-board-space', version: 1, exportedAt: new Date().toISOString(), presets: await listPresets(), blueprints };
+        if (run) {
+          bundle.run = run;
+          bundle.sessions = run.sessions.map((sessionId) => store.getSession(sessionId)).filter(Boolean);
+          bundle.events = store.listEvents({ run: run.id });
+        }
+        sendJson(response, 200, { bundle });
+        return;
+      }
+
+      if (request.method === 'POST' && segments.join('/') === 'api/spaces/import') {
+        const body = await parseJsonBody(request);
+        const bundle = body.bundle || body;
+        if (!bundle || bundle.format !== 'agent-board-space' || !Array.isArray(bundle.blueprints)) {
+          sendJson(response, 400, { ok: false, error: 'not an agent-board space bundle' });
+          return;
+        }
+        const known = await presetNames();
+        const imported = [];
+        const errors = [];
+        for (const blueprint of bundle.blueprints) {
+          const problems = validateBlueprint(blueprint);
+          for (const node of blueprint.nodes || []) {
+            if (node && !known.has(node.agent)) {
+              problems.push('node ' + node.id + ' uses unknown agent preset: ' + node.agent);
+            }
+          }
+          if (problems.length > 0) {
+            errors.push({ name: (blueprint && blueprint.name) || '?', problems });
+            continue;
+          }
+          const safe = String(blueprint.name).replace(/[^a-z0-9-_]+/gi, '-');
+          await mkdir(userTemplatesDir(), { recursive: true });
+          await writeFile(join(userTemplatesDir(), safe + '.json'), JSON.stringify(blueprint, null, 2));
+          imported.push(blueprint.name);
+        }
+        sendJson(response, 200, { ok: errors.length === 0, imported, errors });
         return;
       }
 

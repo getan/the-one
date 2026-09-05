@@ -46,11 +46,24 @@ reports the active mode on `/health`.
 Blueprint node sessions run in `<workdir>/<run>/<node>`, created on launch.
 Adhoc sessions keep the requested workdir.
 
+## Spaces: factory defaults plus user copies
+
+`templates/` ships read-only factory blueprints. `POST /api/spaces/import`
+stores validated blueprints under `<data>/templates/`; the list merges both
+trees with user copies winning (`origin` is `factory` or `space`). Runs
+record `blueprintVersion` so a later edit cannot rewrite history.
+
+- `POST /api/spaces/export` `{run?}` — bundle presets, user blueprints,
+  and optionally one run with its sessions and events.
+- `POST /api/spaces/import` `{bundle}` — validate and store; rejects
+  non-bundles and unknown agent presets per blueprint.
+
 ## Blueprint format
 
 `templates/<name>.json` with `nodes [{id, agent, prompt}]` and
 `edges [{kind: handoff|fanout, from, to, instruction?}]`. Handoff edges
-require an instruction and must form a DAG.
+require an instruction and must form a DAG. Blueprints carry a `version`
+string recorded on every run.
 
 ## Tests and acceptance
 

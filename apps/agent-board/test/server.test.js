@@ -179,6 +179,42 @@ describe('server', () => {
     assert.ok(timeline.body.events.some((event) => event.type === 'handoff.injected' && event.from === 'maker'));
   });
 
+  it('exports and imports spaces with runs', async () => {
+    const listed = await call('/api/blueprints');
+    const smoke = listed.body.blueprints.find((item) => item.name === 'chain-smoke');
+    assert.equal(smoke.origin, 'factory');
+    assert.equal(smoke.version, '0.1.0');
+    const started = await call('/api/blueprints/chain-smoke/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ input: '' }) });
+    const runId = started.body.run.id;
+    assert.equal(started.body.run.blueprintVersion, '0.1.0');
+    const detail = await call('/api/runs/' + runId);
+    for (const item of detail.body.run.sessions) {
+      await waitFor(item.id, ['done'], 15000);
+    }
+    const exported = await call('/api/spaces/export', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ run: runId }) });
+    assert.equal(exported.body.bundle.format, 'agent-board-space');
+    assert.equal(exported.body.bundle.run.id, runId);
+    assert.ok(exported.body.bundle.sessions.length === 2);
+    assert.ok(exported.body.bundle.events.length > 0);
+    const bad = await call('/api/spaces/import', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ bundle: { format: 'nope' } }) });
+    assert.equal(bad.status, 400);
+    const broken = await call('/api/spaces/import', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ bundle: { format: 'agent-board-space', blueprints: [{ name: 'broken', nodes: [], edges: [] }] } }) });
+    assert.equal(broken.body.ok, false);
+    const good = await call('/api/spaces/import', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ bundle: { format: 'agent-board-space', blueprints: [{ name: 'imported-echo', version: '0.2.0', nodes: [{ id: 'solo', agent: 'echo', prompt: 'Say hi.' }], edges: [] }] } }) });
+    assert.equal(good.body.ok, true);
+    assert.deepEqual(good.body.imported, ['imported-echo']);
+    const relisted = await call('/api/blueprints');
+    const mine = relisted.body.blueprints.find((item) => item.name === 'imported-echo');
+    assert.equal(mine.origin, 'space');
+    assert.equal(mine.version, '0.2.0');
+    const solo = await call('/api/blueprints/imported-echo/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ input: '' }) });
+    assert.equal(solo.status, 201);
+    const soloDetail = await call('/api/runs/' + solo.body.run.id);
+    for (const item of soloDetail.body.run.sessions) {
+      await waitFor(item.id, ['done'], 15000);
+    }
+  });
+
   it('serves the web page', async () => {
     const response = await fetch(base + '/');
     const text = await response.text();
