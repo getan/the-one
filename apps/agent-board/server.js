@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir, mkdir, writeFile, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -409,6 +409,58 @@ export function createApp() {
           }
         }
         sendJson(response, 200, { ok: errors.length === 0, errors });
+        return;
+      }
+
+      if ((request.method === 'PUT' || request.method === 'POST') && segments[0] === 'api' && segments[1] === 'blueprints' && (segments.length === 2 || segments.length === 3)) {
+        const body = await parseJsonBody(request);
+        const blueprint = body.blueprint || body;
+        if (segments.length === 3 && blueprint && typeof blueprint.name === 'string' && blueprint.name !== segments[2]) {
+          sendJson(response, 400, { error: 'blueprint name mismatch: url ' + segments[2] + ' vs body ' + blueprint.name });
+          return;
+        }
+        if (segments.length === 2 && (!blueprint || !blueprint.name)) {
+          sendJson(response, 400, { error: 'blueprint.name is required' });
+          return;
+        }
+        const targetName = segments.length === 3 ? segments[2] : blueprint.name;
+        if (!blueprint) {
+          sendJson(response, 400, { error: 'blueprint body required' });
+          return;
+        }
+        blueprint.name = targetName;
+        const errors = validateBlueprint(blueprint);
+        const known = await presetNames();
+        for (const node of blueprint.nodes || []) {
+          if (node && !known.has(node.agent)) {
+            errors.push('node ' + node.id + ' uses unknown agent preset: ' + node.agent);
+          }
+        }
+        if (errors.length > 0) {
+          sendJson(response, 400, { ok: false, errors });
+          return;
+        }
+        const safe = String(targetName).replace(/[^a-z0-9-_]+/gi, '-');
+        await mkdir(userTemplatesDir(), { recursive: true });
+        await writeFile(join(userTemplatesDir(), safe + '.json'), JSON.stringify(blueprint, null, 2));
+        sendJson(response, 200, { ok: true, blueprint });
+        return;
+      }
+
+      if (request.method === 'DELETE' && segments[0] === 'api' && segments[1] === 'blueprints' && segments.length === 3) {
+        const name = segments[2];
+        const files = await templateFiles();
+        const full = files.get(name + '.json');
+        if (!full) {
+          sendJson(response, 404, { error: 'blueprint not found' });
+          return;
+        }
+        if (!full.startsWith(userTemplatesDir())) {
+          sendJson(response, 403, { error: 'factory blueprint is read-only, copy to space first' });
+          return;
+        }
+        await unlink(full);
+        sendJson(response, 200, { ok: true, deleted: name });
         return;
       }
 

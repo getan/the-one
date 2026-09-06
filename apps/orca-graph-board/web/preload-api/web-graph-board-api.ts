@@ -133,11 +133,16 @@ export interface GraphBoardClient {
   sessionLogs: (id: string, tail?: number) => Promise<{ session: GraphBoardSession; lines: string[]; truncated: boolean }>
   listBlueprints: () => Promise<GraphBoardBlueprintSummary[]>
   getBlueprint: (name: string) => Promise<GraphBoardBlueprint>
+  saveBlueprint: (blueprint: GraphBoardBlueprint) => Promise<GraphBoardBlueprint>
+  deleteBlueprint: (name: string) => Promise<{ ok: boolean }>
+  validateBlueprint: (blueprint: GraphBoardBlueprint) => Promise<{ ok: boolean; errors: string[] }>
   runBlueprint: (name: string, input?: string) => Promise<GraphBoardRun>
   getRun: (id: string) => Promise<GraphBoardRun & { sessions: GraphBoardSession[] }>
   runTimeline: (id: string) => Promise<{ run: GraphBoardRun & { sessions: GraphBoardSession[] }; events: GraphBoardEvent[] }>
   listRuns: () => Promise<GraphBoardRun[]>
   listPresets: () => Promise<GraphBoardPreset[]>
+  exportSpace: (runId?: string) => Promise<{ bundle: unknown }>
+  importSpace: (bundle: unknown) => Promise<{ ok: boolean; imported: string[]; errors: unknown[] }>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -198,6 +203,12 @@ export function createGraphBoardClient(args: {
     listBlueprints: async () => (await fetchJson<{ blueprints: GraphBoardBlueprintSummary[] }>('api/blueprints')).blueprints,
     getBlueprint: async (name) =>
       (await fetchJson<{ blueprint: GraphBoardBlueprint }>('api/blueprints/' + encodeURIComponent(name))).blueprint,
+    saveBlueprint: async (blueprint) =>
+      (await fetchJson<{ blueprint: GraphBoardBlueprint }>('api/blueprints/' + encodeURIComponent(blueprint.name), { method: 'PUT', body: JSON.stringify(blueprint) })).blueprint,
+    deleteBlueprint: async (name) =>
+      await fetchJson<{ ok: boolean }>('api/blueprints/' + encodeURIComponent(name), { method: 'DELETE' }),
+    validateBlueprint: async (blueprint) =>
+      await fetchJson<{ ok: boolean; errors: string[] }>('api/blueprints/validate', { method: 'POST', body: JSON.stringify({ blueprint }) }),
     runBlueprint: async (name, input = '') =>
       (
         await fetchJson<{ run: GraphBoardRun }>('api/blueprints/' + encodeURIComponent(name) + '/run', {
@@ -212,6 +223,10 @@ export function createGraphBoardClient(args: {
         'api/runs/' + encodeURIComponent(id) + '/timeline'
       ),
     listRuns: async () => (await fetchJson<{ runs: GraphBoardRun[] }>('api/runs')).runs,
-    listPresets: async () => (await fetchJson<{ presets: GraphBoardPreset[] }>('api/presets')).presets
+    listPresets: async () => (await fetchJson<{ presets: GraphBoardPreset[] }>('api/presets')).presets,
+    exportSpace: async (runId) =>
+      await fetchJson<{ bundle: unknown }>('api/spaces/export', { method: 'POST', body: JSON.stringify(runId ? { run: runId } : {}) }),
+    importSpace: async (bundle) =>
+      await fetchJson<{ ok: boolean; imported: string[]; errors: unknown[] }>('api/spaces/import', { method: 'POST', body: JSON.stringify({ bundle }) })
   }
 }

@@ -70,7 +70,33 @@ Orca 不是没有 Web，而是有**远控式 Web**：浏览器跑同一套 React
 
 另见 `AGENTS.md` 式约束（Orca 侧）：远端线兼容（新字段可选、opcode 需能力协商）、执行边界（失联≠死亡，只判 `live/unverifiable/exited`）、跨平台与工作区兼容——改造时必须遵守，本仓库后续同样立一份。
 
-## 6. UI 参照（The Zeroth 官网实机，已逐张确认）
+## 6. 嵌入方案：Sidecar 优先（已对齐合同）
+
+**结论**：`agent-board` 继续独立进程（`127.0.0.1:8081`），Caddy 每用户多一行 `reverse_proxy /board/* localhost:8081`，Orca 前端只走 `fetch`。不碰 Orca 的 worktree/session/runtime 和配对线，P1 可直接进镜像；合并进 `orcad` 的重写版（B 方案）留到 P2 后再评估。
+
+**合同已对齐**：两仓同文件的类型与路径——`apps/orca-graph-board/web/preload-api/web-graph-board-api.ts` ↔ `orca/src/renderer/src/web/preload-api/web-graph-board-api.ts`（`GRAPH_BOARD_DEFAULT_PATH='/board/'`，`resolveGraphBoardBaseUrl` 支持 `?board=http://…` 覆盖）；布局 `apps/orca-graph-board/components/graph-board/graph-board-layout.ts` 只按 `handoff` 算深度、`fanout` 同层分 lanes。
+
+**拓扑**
+
+```text
+浏览器 ── Caddy(:443, 统一鉴权) ─┬─ /          → orca out/web (dev:web / build:web, base:'./')
+                               └─ /board/*  → agent-board :8081 (Node 单端口, 状态落文件卷)
+容器内：orca web + agent-board 双进程，常驻；数据卷存 templates 用户副本与 runs。
+```
+
+**Orca 侧改动（只读先行）**
+
+- `src/shared/ui-chrome-types.ts` / `src/shared/top-level-view.ts` 加 `'graphs'`，`persisted-ui-state-types.ts` 同步；`AppWorkspaceShell.tsx` / `useAppChromeLayout.ts` 按 `activity/space` 同款隐 worktree sidebar。
+- `src/renderer/src/components/sidebar/SidebarNav.tsx` 加按钮（复 `showSkillsButton` 这类 `settings` gating），`store` 加 `openGraphsPage`。
+- 新增 `src/renderer/src/components/graphs/GraphsPage.tsx`：`createGraphBoardClient({baseUrl: resolveGraphBoardBaseUrl({origin, search})})` 轮询 `listBlueprints/getBlueprint/listRuns/runTimeline`，`layoutGraphBoard` 画只读画布（handoff 金线/fanout 蓝线）+ 运行时间线。
+
+**本地联调与进镜像**
+
+- 本地：`orca: pnpm dev:web` + `the-zeroth-docs: AGENT_BOARD_MOCK=1 node apps/agent-board/server.js`，用 `?board=http://127.0.0.1:8081/` 直连验证，再切同源 `/board/`。
+- 镜像：`Containerfile` 在 `node:20-slim` 层加 `agent-board` 常驻，数据卷挂 `data/`，Caddy 模板每用户一行 `/board/*` 反代；鉴权仍走 Caddy 统一鉴权。
+- 备选 B（合进 `orcad` 用 Orca worktree 隔离与终端流重写 `runner`）侵入大、需处理远端线兼容与 SSH 边界，已延期。
+
+## 7. UI 参照（The Zeroth 官网实机，已逐张确认）
 
 深色高密度控制台风，衬线斜体标题 + 暗金点缀，信息全摊开、可介入：
 
@@ -80,24 +106,25 @@ Orca 不是没有 Web，而是有**远控式 Web**：浏览器跑同一套 React
 - **运行时图弹窗**：父 assistant → 子图多节点链，每节点 `MODEL / TOOLS / 运行态`，`subGraph` 边可点穿透。
 - **预设/Space 页**：`NAME / INHERITANCE / 结构化 Prompt 挂载 / 模型回退`，Space 区分只读出厂与可编辑副本。
 
-## 7. 分期与验收
+## 8. 分期与验收
 
 - **P0（Mac 本地）**：单后端 Codex、目录级隔离、拉起/围观/kill、日志轮询；页面三栏抄运行视图，画布只读。验收：在本机浏览器开任务、看流、停掉。
 - **P1（进镜像）**：单端口 + 数据卷 + `Caddy` 片段，与 code-server 并存；鉴权切 Caddy。验收：容器内与本地同一套代码，域名一切换即用。
 - **P2（The One lite）**：移交边、模版版本化、`.zerospace` 式导入导出；再补 worktree 隔离与多后端。验收：成熟分工存成模版，换容器可复现。
 
-## 8. 仓库结构（规划）
+## 9. 仓库结构（规划）
 
 ```text
 apps/
-└── agent-board/        P0 起点：Node+TS 后端（会话/日志/模版 API）+ React+Vite 前端
+└── agent-board/        Node 单端口后端（会话/日志/模版 API）+ 静态页同端口 serve
+└── orca-graph-board/   嵌入合同：web-graph-board-api（client+types）+ graph-board-layout
 content/docs/          原双语文档（见下节），继续作为概念与验收来源
 public/docs-assets/    文档截图与演示视频
 resources/             原始视频资源
 scripts/               文档迁移脚本
 ```
 
-## 9. 文档区（原仓库内容，原样保留为概念来源）
+## 10. 文档区（原仓库内容，原样保留为概念来源）
 
 以下为原 `the-zeroth-docs` 的有用信息，继续有效；概念细节以此为准，实现以本 README 为准。
 
@@ -124,19 +151,19 @@ content/docs
 - 生成方式：`python scripts\migrate_docs_md.py`——清掉旧 `content/docs` 占位，重建 `en/zh` 双语树，复制资源到 `public/docs-assets`，把占位改写为可部署的 `/docs-assets/...` 引用。
 - 对开发最有用的文档：`multi-agent-architecture/*`（single-agent、evolution、a-genetic-engineering、prolifera-engineering、communication/context-editing/dynamic-graph/meditation/self-evolution）、`the-one-app/definition-space|run` 的交互流程、`start/release-notes/0-1-0→0-3-0` 的分期思路。注意：文档无源码、无 API、无完整蓝图协议，只当验收清单，不当协议抠。
 
-## 10. 维护原则
+## 11. 维护原则
 
 - 中英文文档保持相同 slug，避免语言切换路由漂移；面向用户的表达进 `content/docs`，原始草稿进本地 `docs_md`；截图视频只走 `public/docs-assets`。
 - 产品代码进 `apps/`，文档与产品互不串目录；密钥、账号、私有基础设施不进仓库。
 - 远端：`origin` = `https://github.com/getan/the-one.git`（本项目），`upstream` = 原文档上游（概念同步用，只读）。
 
-## 11. 下一步
+## 12. 下一步
 
-1. 出 P0 页面与接口清单（`Graphs` 视图字段 + 会话/日志 API）。
-2. 最小蓝图 YAML 草案（两种边：串行移交、并行扇出）+ 事件流结构。
-3. Mac 本地跑通后给 `Containerfile` + `Caddy` 片段。
+1. Orca 侧落地 `Graphs` 只读视图（`TopLevelView`/`SidebarNav`/`GraphsPage`，调 `web-graph-board-api` + 只读画布），本地 `dev:web` + `AGENT_BOARD_MOCK=1` 联调。
+2. `Containerfile` + `Caddy /board/*` 片段 + 数据卷，打镜像在容器内同源验证。
+3. `Graphs` 可编辑（蓝图 CRUD、运行发起）与 `spaces` 导入导出收尾；B 方案（合进 `orcad`）视 P1 稳定性再定。
 
-## 12. 进展记录
+## 13. 进展记录
 
 - 2026-09-05 远端与方案：`origin` 切到 `getan/the-one`（SSH），老地址改 `upstream` 只读；`README` 重写为本方案文档。
 - 2026-09-05 P0 后端 `apps/agent-board` 落地：零依赖 Node 单端口（UI 同端口 serve），会话拉起/围观/kill、日志轮询、蓝图校验与运行（fanout 根并发 + handoff 串行注入上游产出与边指令）、`frontend-studio` 示例模版。
@@ -145,4 +172,5 @@ content/docs
 - 2026-09-05 P1 本地完整功能：Agent 预设（`templates/presets`，蓝图节点必须引用已知预设，运行时自动前置 system prompt，单会话也可指定 preset）；事件时间线（`run.started`→并行研究员→`handoff.injected`→director→reviewer→`run.finished`，会话挂 run 关联）；Web 页加只读 Graph 画布（按移交深度分层，handoff 金线/fanout 蓝线）与最新运行时间线。测试 19/19，活体 mock 全链路已验。途中修：时间线漏会话事件（补 run 关联）、旧用例跟进预设校验。
 - 2026-09-05 P2 真链验证：节点目录隔离（`<workdir>/<run>/<node>` 自动建）；`chain-smoke` 双节点真模型链——maker 输出 `HELLO_CHAIN`，经边指令注入 checker 并被原样复述，全 `done`。测试 20/20（含隔离断言）。
 - 2026-09-05 P2 收尾（Web 部分闭环）：用户空间模版（出厂只读 + `<data>/templates` 可编辑副本，同名覆盖，列表标 `origin`）、运行记录 `blueprintVersion`、空间导出/导入（含某次运行的会话与事件快照，坏包与未知预设逐个拒绝）；一键验收 `test/accept-local.sh` 7/7。测试 21/21。
-- 下一步：P1 进镜像（`Containerfile` + 数据卷 + `Caddy` 片段，鉴权切 Caddy）。
+- 2026-09-05 嵌入方案定版：Sidecar 优先（`agent-board` :8081 + Caddy `/board/*` 反代，Orca `Graphs` 视图只调 `web-graph-board-api`），合同已对齐（`web-graph-board-api.ts` + `graph-board-layout.ts` 两仓同文件），`README` 第 6 节落位。
+- 2026-09-05 嵌入方案定版：Sidecar 优先（`agent-board` :8081 + Caddy `/board/*` 反代，Orca `Graphs` 视图只调 `web-graph-board-api`），合同已对齐（`web-graph-board-api.ts` + `graph-board-layout.ts` 两仓同文件），`README` 第 6 节落位。
